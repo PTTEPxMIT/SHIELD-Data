@@ -26,7 +26,7 @@ class Handler(FileSystemEventHandler):
             shell=True,
         )
         subprocess.run(
-            f'gh pr create --title "Add {name}" --body "Auto-added {name}" --base main --head {branch}',
+            f'gh pr create --title "Add new data [{unique_id}]: {name}" --body "Auto-added {name}" --base main --head {branch}',
             shell=True,
         )
         print(f"✅ Created branch {branch} and PR for {name}")
