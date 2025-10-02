@@ -6,11 +6,15 @@ from datetime import datetime
 
 
 class Handler(FileSystemEventHandler):
+    def __init__(self):
+        self.branches = {}  # Track which files belong to which branches
+
     def on_created(self, event):
         if event.is_directory:
             return
         name = event.src_path.split("\\")[-1]
         branch = f"add-{name.replace('.', '-')}"
+        self.branches[name] = branch  # Remember this file's branch
         msg = f"Add {name} - {datetime.now():%Y-%m-%d %H:%M}"
 
         subprocess.run(
@@ -21,6 +25,24 @@ class Handler(FileSystemEventHandler):
             f'gh pr create --title "Add {name}" --body "Auto-added {name}" --base main --head {branch}',
             shell=True,
         )
+        print(f"✅ Created branch and PR for {name}")
+
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        name = event.src_path.split("\\")[-1]
+
+        if name in self.branches:
+            branch = self.branches[name]
+            msg = f"Update {name} - {datetime.now():%Y-%m-%d %H:%M:%S}"
+
+            subprocess.run(
+                f'git checkout {branch} && git add results/{name} && git commit -m "{msg}" && git push origin {branch}',
+                shell=True,
+            )
+            print(f"🔄 Updated {name} in branch {branch}")
+        else:
+            print(f"ℹ️  File {name} modified but no branch tracked (treating as new)")
 
 
 observer = Observer()
