@@ -2,6 +2,8 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import subprocess
 import time
+import random
+import string
 from datetime import datetime
 
 
@@ -13,7 +15,9 @@ class Handler(FileSystemEventHandler):
         if event.is_directory:
             return
         name = event.src_path.split("\\")[-1]
-        branch = f"add-{name.replace('.', '-')}"
+        # Generate unique branch name with random alphanumeric suffix
+        unique_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=7))
+        branch = f"add_new_data_{unique_id}"
         self.branches[name] = branch  # Remember this file's branch
         msg = f"Add {name} - {datetime.now():%Y-%m-%d %H:%M}"
 
@@ -25,7 +29,7 @@ class Handler(FileSystemEventHandler):
             f'gh pr create --title "Add {name}" --body "Auto-added {name}" --base main --head {branch}',
             shell=True,
         )
-        print(f"✅ Created branch and PR for {name}")
+        print(f"✅ Created branch {branch} and PR for {name}")
 
     def on_modified(self, event):
         if event.is_directory:
