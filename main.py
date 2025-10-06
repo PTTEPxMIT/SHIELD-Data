@@ -6,6 +6,9 @@ import random
 import string
 from datetime import datetime
 
+# Configuration
+CHECK_INTERVAL = 1  # How often to check for changes (in seconds)
+
 
 class Handler(FileSystemEventHandler):
     def __init__(self):
@@ -52,10 +55,12 @@ class Handler(FileSystemEventHandler):
 observer = Observer()
 observer.schedule(Handler(), "results", recursive=True)
 observer.start()
-print("Monitoring results/ folder. Press Ctrl+C to stop...")
+print(
+    f"Monitoring results/ folder (checking every {CHECK_INTERVAL}s). Press Ctrl+C to stop..."
+)
 try:
     while True:
-        time.sleep(1)
+        time.sleep(CHECK_INTERVAL)
 except KeyboardInterrupt:
     observer.stop()
 observer.join()
