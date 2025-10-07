@@ -25,15 +25,28 @@ class Handler(FileSystemEventHandler):
 
     def parse_run_info(self, file_paths):
         """Extract run information from folder structure and metadata"""
-        # Find metadata file first
-        metadata_path = None
-        for file_path in file_paths:
-            if "run_metadata.json" in file_path:
-                metadata_path = Path("results") / file_path
-                break
+        # Parse folder structure from any file in the batch
+        sample_path = Path(next(iter(file_paths)))
+        path_parts = sample_path.parts
 
-        if metadata_path is None:
-            raise FileNotFoundError("run_metadata.json not found in the added files")
+        date_folder = None
+        run_folder = None
+
+        for part in path_parts:
+            if re.match(r"\d{2}\.\d{2}", part):
+                date_folder = part
+            elif re.match(r"run_\d+_\d{2}h\d{2}", part):
+                run_folder = part
+
+        if not date_folder:
+            raise ValueError("Date folder (MM.DD format) not found in path structure")
+        if not run_folder:
+            raise ValueError(
+                "Run folder (run_X_HHhMM format) not found in path structure"
+            )
+
+        # Find metadata file in the run folder (not necessarily in current batch)
+        metadata_path = Path("results") / date_folder / run_folder / "run_metadata.json"
 
         if not metadata_path.exists():
             raise FileNotFoundError(f"Metadata file does not exist: {metadata_path}")
@@ -55,26 +68,6 @@ class Handler(FileSystemEventHandler):
         for field in required_fields:
             if field not in run_info:
                 raise KeyError(f"Required field '{field}' missing from run_info")
-
-        # Parse folder structure
-        sample_path = Path(next(iter(file_paths)))
-        path_parts = sample_path.parts
-
-        date_folder = None
-        run_folder = None
-
-        for part in path_parts:
-            if re.match(r"\d{2}\.\d{2}", part):
-                date_folder = part
-            elif re.match(r"run_\d+_\d{2}h\d{2}", part):
-                run_folder = part
-
-        if not date_folder:
-            raise ValueError("Date folder (MM.DD format) not found in path structure")
-        if not run_folder:
-            raise ValueError(
-                "Run folder (run_X_HHhMM format) not found in path structure"
-            )
 
         return {
             "date_folder": date_folder,
