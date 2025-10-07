@@ -44,14 +44,12 @@ class Handler(FileSystemEventHandler):
         for file_path in file_paths:
             if "run_metadata.json" in file_path:
                 metadata_path = Path("results") / file_path
-                break
 
-        if metadata_path and metadata_path.exists():
-            try:
-                with open(metadata_path, "r") as f:
-                    metadata = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                print(f"⚠️  Could not read metadata: {e}")
+        if metadata_path is None:
+            raise ValueError("Metadata file not found")
+
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
 
         return {
             "date_folder": date_folder,
@@ -75,9 +73,10 @@ class Handler(FileSystemEventHandler):
         )
 
         # Build title using metadata fields
-        run_type = metadata.get("run_type", "Unknown")
-        furnace_setpoint = metadata.get("furnace_setpoint", "Unknown")
-        title = f"New run data: {run_type}; {date_folder}; {furnace_setpoint} K"
+        run_type = metadata["run_info"]["run_type"]
+        metadata_date = metadata["run_info"]["date"]
+        furnace_setpoint = metadata["run_info"]["furnace_setpoint"]
+        title = f"New run data: {run_type}; {metadata_date}; {furnace_setpoint} K"
 
         # Build detailed body
         body_parts = [
