@@ -74,23 +74,25 @@ class Handler(FileSystemEventHandler):
             f"{run_match.group(2)}:{run_match.group(3)}" if run_match else "Unknown"
         )
 
-        # Build title
-        title = f"Run {run_number} Data ({date_folder} at {run_time})"
+        # Build title using metadata fields
+        run_type = metadata.get("run_type", "Unknown")
+        furnace_setpoint = metadata.get("furnace_setpoint", "Unknown")
+        title = f"New run data: {run_type}; {date_folder}; {furnace_setpoint} K"
 
         # Build detailed body
         body_parts = [
-            f"## 🔬 Experimental Run Data",
-            f"",
+            "## 🔬 Experimental Run Data",
+            "",
             f"**Date:** {date_folder}",
             f"**Run Number:** {run_number}",
             f"**Start Time:** {run_time}",
             f"**Total Files:** {total_files}",
-            f"",
+            "",
         ]
 
         # Add metadata information if available
         if metadata:
-            body_parts.extend([f"### 📊 Run Metadata:", f"```json"])
+            body_parts.extend(["### 📊 Run Metadata:", "```json"])
             # Add key metadata fields
             for key, value in metadata.items():
                 if isinstance(value, (str, int, float, bool)):
@@ -101,17 +103,17 @@ class Handler(FileSystemEventHandler):
         # Add file structure info
         body_parts.extend(
             [
-                f"### 📁 Data Structure:",
-                f"- `pressure_gauge_data.csv` - Main experimental data",
-                f"- `run_metadata.json` - Run configuration and metadata",
-                f"- `backup/` - Backup data files",
-                f"",
-                f"---",
+                "### 📁 Data Structure:",
+                "- `pressure_gauge_data.csv` - Main experimental data",
+                "- `run_metadata.json` - Run configuration and metadata",
+                "- `backup/` - Backup data files",
+                "",
+                "---",
                 f"*Auto-generated from experimental run at {datetime.now():%Y-%m-%d %H:%M:%S}*",
             ]
         )
 
-        return title, "\\n".join(body_parts)
+        return title, "\n".join(body_parts)
 
     def on_any_event(self, event):
         if event.is_directory:
