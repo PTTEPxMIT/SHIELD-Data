@@ -9,6 +9,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from jinja2 import Template
 
 # Configuration
 CHECK_INTERVAL = 10  # How often to check for changes (in seconds)
@@ -90,26 +91,23 @@ class Handler(FileSystemEventHandler):
         # Build title
         title = f"New run data: {run_data['run_type']}; {run_data['date']}; {run_data['furnace_setpoint']} K"
 
-        # Build body
-        body = f"""## 🔬 Experimental Run Data
+        # Load and render template
+        template_path = Path("pr_template.md")
+        if not template_path.exists():
+            raise FileNotFoundError("pr_template.md not found")
 
-        **Run Type:** {run_data["run_type"]}
-        **Date:** {run_data["date"]}
-        **Furnace Setpoint:** {run_data["furnace_setpoint"]} K
-        **Total Files:** {run_info["total_files"]}
+        with open(template_path, "r") as f:
+            template_content = f.read()
 
-        ### 📊 Full Metadata:
-        ```json
-        {json.dumps(metadata, indent=2)}
-        ```
-
-        ### 📁 Data Structure:
-        - `pressure_gauge_data.csv` - Main experimental data
-        - `run_metadata.json` - Run configuration and metadata
-        - `backup/` - Backup data files
-
-        ---
-        *Auto-generated at {datetime.now():%Y-%m-%d %H:%M:%S}*"""
+        template = Template(template_content)
+        body = template.render(
+            run_type=run_data["run_type"],
+            date=run_data["date"],
+            furnace_setpoint=run_data["furnace_setpoint"],
+            total_files=run_info["total_files"],
+            metadata_json=json.dumps(metadata, indent=2),
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
 
         return title, body
 
