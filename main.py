@@ -24,32 +24,56 @@ class Handler(FileSystemEventHandler):
 
     def parse_run_info(self, file_paths):
         """Extract run information from folder structure and metadata"""
-        # Find the first file to analyze structure
-        sample_path = next(iter(file_paths))
-        path_parts = Path(sample_path).parts
-
-        # Extract date (MM.DD) and run info (run_X_HHhMM)
-        date_folder = None
-        run_folder = None
-
-        for part in path_parts:
-            if re.match(r"\d{2}\.\d{2}", part):  # MM.DD format
-                date_folder = part
-            elif re.match(r"run_\d+_\d{2}h\d{2}", part):  # run_X_HHhMM format
-                run_folder = part
-
-        # Try to read metadata
-        metadata = {}
+        # Find metadata file first
         metadata_path = None
         for file_path in file_paths:
             if "run_metadata.json" in file_path:
                 metadata_path = Path("results") / file_path
+                break
 
         if metadata_path is None:
-            raise ValueError("Metadata file not found")
+            raise FileNotFoundError("run_metadata.json not found in the added files")
 
-        with open(metadata_path, "r") as f:
-            metadata = json.load(f)
+        if not metadata_path.exists():
+            raise FileNotFoundError(f"Metadata file does not exist: {metadata_path}")
+
+        # Read metadata
+        try:
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in metadata file: {e}")
+
+        # Validate required metadata fields
+        if "run_info" not in metadata:
+            raise KeyError("'run_info' section missing from metadata")
+
+        run_info = metadata["run_info"]
+        required_fields = ["run_type", "date", "furnace_setpoint"]
+
+        for field in required_fields:
+            if field not in run_info:
+                raise KeyError(f"Required field '{field}' missing from run_info")
+
+        # Parse folder structure
+        sample_path = Path(next(iter(file_paths)))
+        path_parts = sample_path.parts
+
+        date_folder = None
+        run_folder = None
+
+        for part in path_parts:
+            if re.match(r"\d{2}\.\d{2}", part):
+                date_folder = part
+            elif re.match(r"run_\d+_\d{2}h\d{2}", part):
+                run_folder = part
+
+        if not date_folder:
+            raise ValueError("Date folder (MM.DD format) not found in path structure")
+        if not run_folder:
+            raise ValueError(
+                "Run folder (run_X_HHhMM format) not found in path structure"
+            )
 
         return {
             "date_folder": date_folder,
@@ -60,59 +84,34 @@ class Handler(FileSystemEventHandler):
 
     def create_pr_content(self, run_info):
         """Create PR title and body based on run information"""
-        date_folder = run_info["date_folder"]
-        run_folder = run_info["run_folder"]
         metadata = run_info["metadata"]
-        total_files = run_info["total_files"]
+        run_data = metadata["run_info"]
 
-        # Extract run number and time from folder name
-        run_match = re.match(r"run_(\d+)_(\d{2})h(\d{2})", run_folder or "")
-        run_number = run_match.group(1) if run_match else "Unknown"
-        run_time = (
-            f"{run_match.group(2)}:{run_match.group(3)}" if run_match else "Unknown"
-        )
+        # Build title
+        title = f"New run data: {run_data['run_type']}; {run_data['date']}; {run_data['furnace_setpoint']} K"
 
-        # Build title using metadata fields
-        run_type = metadata["run_info"]["run_type"]
-        metadata_date = metadata["run_info"]["date"]
-        furnace_setpoint = metadata["run_info"]["furnace_setpoint"]
-        title = f"New run data: {run_type}; {metadata_date}; {furnace_setpoint} K"
+        # Build body
+        body = f"""## 🔬 Experimental Run Data
 
-        # Build detailed body
-        body_parts = [
-            "## 🔬 Experimental Run Data",
-            "",
-            f"**Date:** {date_folder}",
-            f"**Run Number:** {run_number}",
-            f"**Start Time:** {run_time}",
-            f"**Total Files:** {total_files}",
-            "",
-        ]
+        **Run Type:** {run_data["run_type"]}
+        **Date:** {run_data["date"]}
+        **Furnace Setpoint:** {run_data["furnace_setpoint"]} K
+        **Total Files:** {run_info["total_files"]}
 
-        # Add metadata information if available
-        if metadata:
-            body_parts.extend(["### 📊 Run Metadata:", "```json"])
-            # Add key metadata fields
-            for key, value in metadata.items():
-                if isinstance(value, (str, int, float, bool)):
-                    body_parts.append(f"{key}: {value}")
-            body_parts.append("```")
-            body_parts.append("")
+        ### 📊 Full Metadata:
+        ```json
+        {json.dumps(metadata, indent=2)}
+        ```
 
-        # Add file structure info
-        body_parts.extend(
-            [
-                "### 📁 Data Structure:",
-                "- `pressure_gauge_data.csv` - Main experimental data",
-                "- `run_metadata.json` - Run configuration and metadata",
-                "- `backup/` - Backup data files",
-                "",
-                "---",
-                f"*Auto-generated from experimental run at {datetime.now():%Y-%m-%d %H:%M:%S}*",
-            ]
-        )
+        ### 📁 Data Structure:
+        - `pressure_gauge_data.csv` - Main experimental data
+        - `run_metadata.json` - Run configuration and metadata
+        - `backup/` - Backup data files
 
-        return title, "\n".join(body_parts)
+        ---
+        *Auto-generated at {datetime.now():%Y-%m-%d %H:%M:%S}*"""
+
+        return title, body
 
     def on_any_event(self, event):
         if event.is_directory:
