@@ -167,22 +167,35 @@ class Handler(FileSystemEventHandler):
                 subprocess.run(f"git push origin {self.current_branch}", shell=True)
 
                 # Create PR with enhanced title and body
-                subprocess.run(
-                    [
-                        "gh",
-                        "pr",
-                        "create",
-                        "--title",
-                        title,
-                        "--body",
-                        body,
-                        "--base",
-                        "main",
-                        "--head",
-                        self.current_branch,
-                    ],
-                    shell=True,
-                )
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".md", delete=False
+                ) as f:
+                    f.write(body)
+                    body_file = f.name
+
+                try:
+                    subprocess.run(
+                        [
+                            "gh",
+                            "pr",
+                            "create",
+                            "--title",
+                            title,
+                            "--body-file",
+                            body_file,
+                            "--base",
+                            "main",
+                            "--head",
+                            self.current_branch,
+                        ],
+                        check=True,
+                    )
+                finally:
+                    import os
+
+                    os.unlink(body_file)
 
                 print(f"✅ Created branch {self.current_branch} and PR: {title}")
             else:
