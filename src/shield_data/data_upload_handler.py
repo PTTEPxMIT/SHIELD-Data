@@ -145,6 +145,10 @@ class Handler(FileSystemEventHandler):
         if "backup" in rel_path.parts:
             return
 
+        # Ignore catalogue files (they are auto-generated)
+        if rel_path.name in ("runs_catalogue.csv", "README.md"):
+            return
+
         print(f"🔍 Detected: {event.event_type} - {rel_path}")
 
         # Add to pending changes
