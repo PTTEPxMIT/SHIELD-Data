@@ -6,3 +6,4 @@ run_id,path,run_type,date,furnace_setpoint,material,coating
 25.10.08_run_2_20h05,run_data/25.10.08_run_2_20h05,permeation_exp,2025-10-08,400,unknown,None
 25.10.09_run_1_13h09,run_data/25.10.09_run_1_13h09,permeation_exp,2025-10-09,400,unknown,None
 25.10.10_run_1_08h38,run_data/25.10.10_run_1_08h38,permeation_exp,2025-10-10,300,unknown,None
+25.10.13_run_1_16h51,run_data/25.10.13_run_1_16h51,permeation_exp,2025-10-13,300,unknown,None
