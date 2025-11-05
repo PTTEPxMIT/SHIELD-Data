@@ -46,10 +46,12 @@ def build_catalogue(runs_dir: str | Path) -> None:
                 continue
             meta = _meta(run_path)
             run_info = meta.get("run_info", {})
+            # Use relative path from runs_dir
+            relative_path = run_path.relative_to(runs_dir.parent)
             rows.append(
                 {
                     "run_id": run_path.name,
-                    "path": run_path.as_posix(),
+                    "path": relative_path.as_posix(),
                     "run_type": str(run_info.get("run_type", "")),
                     "date": str(run_info.get("date", "")),
                     "furnace_setpoint": str(run_info.get("furnace_setpoint", "")),
