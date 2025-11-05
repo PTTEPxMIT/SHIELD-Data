@@ -37,8 +37,8 @@ Issues = "https://github.com/PTTEPxMIT/SHIELD-DATA/issues"
 [tool.setuptools_scm]
 write_to = "src/shield_data/_version.py"
 
-[tool.coverage.run]
-omit = ["src/shield_data/_version.py"]
+# [tool.coverage.run]
+# omit = ["src/shield_data/_version.py"]
 
 [tool.coverage.report]
 exclude_lines = [
