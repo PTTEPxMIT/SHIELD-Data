@@ -223,6 +223,13 @@ class Handler(FileSystemEventHandler):
 def upload_data_from_folder(results_folder: str):
     """Monitor provided results folder and upload data changes via GitHub PRs"""
 
+    # Check if folder exists
+    folder_path = Path(results_folder)
+    if not folder_path.exists():
+        raise FileNotFoundError(f"Folder does not exist: {results_folder}")
+    if not folder_path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {results_folder}")
+
     observer = Observer()
     observer.schedule(Handler(results_folder), f"{results_folder}", recursive=True)
     observer.start()
