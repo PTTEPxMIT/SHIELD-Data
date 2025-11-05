@@ -20,6 +20,30 @@ BATCH_DELAY = 3
 
 
 class Handler(FileSystemEventHandler):
+    """Handler for monitoring file system events and processing data uploads
+
+    Args:
+        results_folder: Path to the results folder to monitor
+        current_branch: Current git branch for the upload session
+        pending_changes: Set of pending file changes to process
+        timer: Timer for batching file changes
+        session_files: Set of files tracked in the current session
+
+    Attributes:
+        results_folder: Path to the results folder to monitor
+        current_branch: Current git branch for the upload session
+        pending_changes: Set of pending file changes to process
+        timer: Timer for batching file changes
+        session_files: Set of files tracked in the current session
+
+    """
+
+    results_folder: str
+    current_branch: str | None
+    pending_changes: set[str]
+    timer: threading.Timer | None
+    session_files: set[str]
+
     def __init__(self, results_folder="results"):
         self.results_folder = results_folder
         self.current_branch = None
@@ -27,7 +51,7 @@ class Handler(FileSystemEventHandler):
         self.timer = None
         self.session_files = set()  # Track files in current session
 
-    def parse_run_info(self, file_paths):
+    def parse_run_info(self, file_paths: set[str]) -> dict:
         """Extract run information from folder structure and metadata"""
         # Parse folder structure from any file in the batch
         sample_path = Path(next(iter(file_paths)))
@@ -76,7 +100,7 @@ class Handler(FileSystemEventHandler):
             "total_files": len(file_paths),
         }
 
-    def create_pr_content(self, run_info):
+    def create_pr_content(self, run_info: dict) -> tuple[str, str]:
         """Create PR title and body based on run information"""
         metadata = run_info["metadata"]
         run_data = metadata["run_info"]
@@ -106,7 +130,8 @@ class Handler(FileSystemEventHandler):
 
         return title, body
 
-    def on_any_event(self, event):
+    def on_any_event(self, event: any):
+        """Handle any file system event"""
         if event.is_directory:
             return
 
