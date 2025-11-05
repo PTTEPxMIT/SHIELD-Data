@@ -1,6 +1,6 @@
 # Run Data Catalogue
 
-Total runs: 6
+Total runs: 7
 
 | Run ID | Path | Run Type | Date | Furnace Setpoint (K) | Material | Coating |
 |--------|------|----------|------|----------------------|----------|----------|
@@ -10,3 +10,4 @@ Total runs: 6
 | 25.10.08_run_1_08h34 | run_data/25.10.08_run_1_08h34 | permeation_exp | 2025-10-08 | 400 | unknown | None |
 | 25.10.08_run_2_20h05 | run_data/25.10.08_run_2_20h05 | permeation_exp | 2025-10-08 | 400 | unknown | None |
 | 25.10.09_run_1_13h09 | run_data/25.10.09_run_1_13h09 | permeation_exp | 2025-10-09 | 400 | unknown | None |
+| 25.10.10_run_1_08h38 | run_data/25.10.10_run_1_08h38 | permeation_exp | 2025-10-10 | 300 | unknown | None |
