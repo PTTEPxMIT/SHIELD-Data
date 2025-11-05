@@ -1,23 +1,49 @@
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-import subprocess
-import time
-import random
-import string
-import threading
 import json
+import os
+import random
 import re
+import string
+import subprocess
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
+
 from jinja2 import Template
-import os
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 # Configuration
 CHECK_INTERVAL = 10  # How often to check for changes (in seconds)
-BATCH_DELAY = 3  # Wait 3 seconds after last event before processing (to batch multiple file changes)
+# Wait 3 seconds after last event before processing (to batch multiple file changes)
+BATCH_DELAY = 3
 
 
 class Handler(FileSystemEventHandler):
+    """Handler for monitoring file system events and processing data uploads
+
+    Args:
+        results_folder: Path to the results folder to monitor
+        current_branch: Current git branch for the upload session
+        pending_changes: Set of pending file changes to process
+        timer: Timer for batching file changes
+        session_files: Set of files tracked in the current session
+
+    Attributes:
+        results_folder: Path to the results folder to monitor
+        current_branch: Current git branch for the upload session
+        pending_changes: Set of pending file changes to process
+        timer: Timer for batching file changes
+        session_files: Set of files tracked in the current session
+
+    """
+
+    results_folder: str
+    current_branch: str | None
+    pending_changes: set[str]
+    timer: threading.Timer | None
+    session_files: set[str]
+
     def __init__(self, results_folder="results"):
         self.results_folder = results_folder
         self.current_branch = None
@@ -25,7 +51,7 @@ class Handler(FileSystemEventHandler):
         self.timer = None
         self.session_files = set()  # Track files in current session
 
-    def parse_run_info(self, file_paths):
+    def parse_run_info(self, file_paths: set[str]) -> dict:
         """Extract run information from folder structure and metadata"""
         # Parse folder structure from any file in the batch
         sample_path = Path(next(iter(file_paths)))
@@ -52,7 +78,7 @@ class Handler(FileSystemEventHandler):
 
         # Read metadata
         try:
-            with open(metadata_path, "r") as f:
+            with open(metadata_path) as f:
                 metadata = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in metadata file: {e}")
@@ -74,20 +100,22 @@ class Handler(FileSystemEventHandler):
             "total_files": len(file_paths),
         }
 
-    def create_pr_content(self, run_info):
+    def create_pr_content(self, run_info: dict) -> tuple[str, str]:
         """Create PR title and body based on run information"""
         metadata = run_info["metadata"]
         run_data = metadata["run_info"]
 
         # Build title
-        title = f"New run data: {run_data['run_type']}; {run_data['date']}; {run_data['furnace_setpoint']} K"
+        title = (
+            f"New run data: {run_data['run_type']}; "
+            f"{run_data['date']}; "
+            f"{run_data['furnace_setpoint']} K"
+        )
 
         # Load and render template
-        template_path = Path("pr_template.md")
-        if not template_path.exists():
-            raise FileNotFoundError("pr_template.md not found")
+        template_path = Path(__file__).parent / "pr_template.md"
 
-        with open(template_path, "r") as f:
+        with open(template_path) as f:
             template_content = f.read()
 
         template = Template(template_content)
@@ -102,7 +130,8 @@ class Handler(FileSystemEventHandler):
 
         return title, body
 
-    def on_any_event(self, event):
+    def on_any_event(self, event: any):
+        """Handle any file system event"""
         if event.is_directory:
             return
 
@@ -189,7 +218,7 @@ class Handler(FileSystemEventHandler):
 
                 print(f"✅ Created branch {self.current_branch} and PR: {title}")
             else:
-                print("ℹ️  No changes to commit")
+                print("ℹ️  No changes to commit")  # noqa: RUF001
         else:
             # Update existing branch
             msg = f"Update data session - {datetime.now():%Y-%m-%d %H:%M:%S}"
@@ -203,22 +232,34 @@ class Handler(FileSystemEventHandler):
                 subprocess.run(f'git commit -m "{msg}"', shell=True)
                 subprocess.run(f"git push origin {self.current_branch}", shell=True)
                 print(
-                    f"🔄 Updated {self.current_branch} with {len(self.pending_changes)} changes"
+                    f"🔄 Updated {self.current_branch} with "
+                    f"{len(self.pending_changes)} changes"
                 )
             else:
-                print("ℹ️  No changes to commit")
+                print("ℹ️  No changes to commit")  # noqa: RUF001
 
         # Update session files and clear pending
         self.session_files.update(self.pending_changes)
         self.pending_changes.clear()
 
 
-def upload_data(results_folder):
+def upload_data_from_folder(results_folder: str):
+    """Monitor provided results folder and upload data changes via GitHub PRs"""
+
+    # Check if folder exists
+    folder_path = Path(results_folder)
+    if not folder_path.exists():
+        raise FileNotFoundError(f"Folder does not exist: {results_folder}")
+    if not folder_path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {results_folder}")
+
     observer = Observer()
     observer.schedule(Handler(results_folder), f"{results_folder}", recursive=True)
     observer.start()
     print(
-        f"Monitoring {results_folder}/ folder (checking every {CHECK_INTERVAL}s). Press Ctrl+C to stop..."
+        f"Monitoring {results_folder}/ folder "
+        f"(checking every {CHECK_INTERVAL}s). "
+        "Press Ctrl+C to stop..."
     )
     try:
         while True:
