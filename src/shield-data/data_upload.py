@@ -82,7 +82,11 @@ class Handler(FileSystemEventHandler):
         run_data = metadata["run_info"]
 
         # Build title
-        title = f"New run data: {run_data['run_type']}; {run_data['date']}; {run_data['furnace_setpoint']} K"
+        title = (
+            f"New run data: {run_data['run_type']}; "
+            f"{run_data['date']}; "
+            f"{run_data['furnace_setpoint']} K"
+        )
 
         # Load and render template
         template_path = Path("pr_template.md")
@@ -205,7 +209,8 @@ class Handler(FileSystemEventHandler):
                 subprocess.run(f'git commit -m "{msg}"', shell=True)
                 subprocess.run(f"git push origin {self.current_branch}", shell=True)
                 print(
-                    f"🔄 Updated {self.current_branch} with {len(self.pending_changes)} changes"
+                    f"🔄 Updated {self.current_branch} with "
+                    f"{len(self.pending_changes)} changes"
                 )
             else:
                 print("ℹ️  No changes to commit")
@@ -220,7 +225,9 @@ def upload_data(results_folder):
     observer.schedule(Handler(results_folder), f"{results_folder}", recursive=True)
     observer.start()
     print(
-        f"Monitoring {results_folder}/ folder (checking every {CHECK_INTERVAL}s). Press Ctrl+C to stop..."
+        f"Monitoring {results_folder}/ folder "
+        f"(checking every {CHECK_INTERVAL}s). "
+        "Press Ctrl+C to stop..."
     )
     try:
         while True:
