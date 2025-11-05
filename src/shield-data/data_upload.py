@@ -54,7 +54,7 @@ class Handler(FileSystemEventHandler):
 
         # Read metadata
         try:
-            with open(metadata_path, "r") as f:
+            with open(metadata_path) as f:
                 metadata = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in metadata file: {e}")
@@ -93,7 +93,7 @@ class Handler(FileSystemEventHandler):
         if not template_path.exists():
             raise FileNotFoundError("pr_template.md not found")
 
-        with open(template_path, "r") as f:
+        with open(template_path) as f:
             template_content = f.read()
 
         template = Template(template_content)
@@ -195,7 +195,7 @@ class Handler(FileSystemEventHandler):
 
                 print(f"✅ Created branch {self.current_branch} and PR: {title}")
             else:
-                print("ℹ️  No changes to commit")
+                print("ℹ️  No changes to commit")  # noqa: RUF001
         else:
             # Update existing branch
             msg = f"Update data session - {datetime.now():%Y-%m-%d %H:%M:%S}"
@@ -213,7 +213,7 @@ class Handler(FileSystemEventHandler):
                     f"{len(self.pending_changes)} changes"
                 )
             else:
-                print("ℹ️  No changes to commit")
+                print("ℹ️  No changes to commit")  # noqa: RUF001
 
         # Update session files and clear pending
         self.session_files.update(self.pending_changes)
