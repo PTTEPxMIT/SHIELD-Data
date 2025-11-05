@@ -208,15 +208,16 @@ class Handler(FileSystemEventHandler):
         self.pending_changes.clear()
 
 
-observer = Observer()
-observer.schedule(Handler(), "results", recursive=True)
-observer.start()
-print(
-    f"Monitoring results/ folder (checking every {CHECK_INTERVAL}s). Press Ctrl+C to stop..."
-)
-try:
-    while True:
-        time.sleep(CHECK_INTERVAL)
-except KeyboardInterrupt:
-    observer.stop()
-observer.join()
+def upload_data(results_folder):
+    observer = Observer()
+    observer.schedule(Handler(), f"{results_folder}", recursive=True)
+    observer.start()
+    print(
+        f"Monitoring {results_folder}/ folder (checking every {CHECK_INTERVAL}s). Press Ctrl+C to stop..."
+    )
+    try:
+        while True:
+            time.sleep(CHECK_INTERVAL)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
