@@ -150,7 +150,7 @@ class Handler(FileSystemEventHandler):
 
             subprocess.run("git checkout main", shell=True)
             subprocess.run(f"git checkout -b {self.current_branch}", shell=True)
-            subprocess.run("git add .", shell=True)
+            subprocess.run(f"git add {self.results_folder}/", shell=True)
 
             # Check if there are actually changes to commit
             result = subprocess.run("git diff --cached --quiet", shell=True)
@@ -195,7 +195,7 @@ class Handler(FileSystemEventHandler):
             msg = f"Update data session - {datetime.now():%Y-%m-%d %H:%M:%S}"
 
             subprocess.run(f"git checkout {self.current_branch}", shell=True)
-            subprocess.run("git add .", shell=True)
+            subprocess.run(f"git add {self.results_folder}/", shell=True)
 
             # Check if there are changes
             result = subprocess.run("git diff --cached --quiet", shell=True)
