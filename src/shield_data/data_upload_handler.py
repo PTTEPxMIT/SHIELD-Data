@@ -89,9 +89,7 @@ class Handler(FileSystemEventHandler):
         )
 
         # Load and render template
-        template_path = Path("pr_template.md")
-        if not template_path.exists():
-            raise FileNotFoundError("pr_template.md not found")
+        template_path = Path(__file__).parent / "pr_template.md"
 
         with open(template_path) as f:
             template_content = f.read()
