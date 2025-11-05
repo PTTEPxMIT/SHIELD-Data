@@ -18,7 +18,8 @@ BATCH_DELAY = 3  # Wait 3 seconds after last event before processing (to batch m
 
 
 class Handler(FileSystemEventHandler):
-    def __init__(self):
+    def __init__(self, results_folder="results"):
+        self.results_folder = results_folder
         self.current_branch = None
         self.pending_changes = set()
         self.timer = None
@@ -44,7 +45,7 @@ class Handler(FileSystemEventHandler):
             )
 
         # Find metadata file in the run folder (not necessarily in current batch)
-        metadata_path = Path("results") / run_folder / "run_metadata.json"
+        metadata_path = Path(self.results_folder) / run_folder / "run_metadata.json"
 
         if not metadata_path.exists():
             raise FileNotFoundError(f"Metadata file does not exist: {metadata_path}")
@@ -107,7 +108,11 @@ class Handler(FileSystemEventHandler):
 
         # Get relative path from results folder
         full_path = Path(event.src_path)
-        rel_path = full_path.relative_to(Path("results"))
+        rel_path = full_path.relative_to(Path(self.results_folder))
+
+        # Ignore files in backup folder
+        if "backup" in rel_path.parts:
+            return
 
         print(f"🔍 Detected: {event.event_type} - {rel_path}")
 
@@ -210,7 +215,7 @@ class Handler(FileSystemEventHandler):
 
 def upload_data(results_folder):
     observer = Observer()
-    observer.schedule(Handler(), f"{results_folder}", recursive=True)
+    observer.schedule(Handler(results_folder), f"{results_folder}", recursive=True)
     observer.start()
     print(
         f"Monitoring {results_folder}/ folder (checking every {CHECK_INTERVAL}s). Press Ctrl+C to stop..."
