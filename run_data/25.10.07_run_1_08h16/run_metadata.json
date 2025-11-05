@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "run_info": {
+    "date": "2025-10-07",
+    "start_time": "2025-10-07 08:16:10",
+    "run_type": "permeation_exp",
+    "furnace_setpoint": 500,
+    "recording_interval_seconds": 0.5,
+    "backup_interval_seconds": 100,
+    "data_filename": "pressure_gauge_data.csv",
+    "v5_close_time": "2025-10-07 08:16:23.533",
+    "v6_close_time": "2025-10-07 08:16:37.943",
+    "v7_close_time": "2025-10-07 08:16:51.934",
+    "v3_open_time": "2025-10-07 08:17:11.984"
+  },
+  "gauges": [
+    {
+      "name": "WGM701",
+      "type": "WGM701_Gauge",
+      "ain_channel": 10,
+      "gauge_location": "downstream"
+    },
+    {
+      "name": "CVM211",
+      "type": "CVM211_Gauge",
+      "ain_channel": 8,
+      "gauge_location": "upstream"
+    },
+    {
+      "name": "Baratron626D_1KT",
+      "type": "Baratron626D_Gauge",
+      "ain_channel": 6,
+      "gauge_location": "upstream",
+      "full_scale_torr": 1000.0
+    },
+    {
+      "name": "Baratron626D_1T",
+      "type": "Baratron626D_Gauge",
+      "ain_channel": 4,
+      "gauge_location": "downstream",
+      "full_scale_torr": 1.0
+    }
+  ],
+  "thermocouples": [
+    {
+      "name": "type K thermocouple"
+    }
+  ]
+}
