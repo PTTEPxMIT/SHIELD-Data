@@ -13,7 +13,7 @@ description = "A database for results collected from the SHIELD permeation rig"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
-dependencies = ["watchdog", "jinja2"]
+dependencies = ["watchdog", "jinja2", "pandas"]
 classifiers = [
     "Natural Language :: English",
     "Topic :: Scientific/Engineering",
