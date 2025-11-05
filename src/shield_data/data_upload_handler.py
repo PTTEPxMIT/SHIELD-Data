@@ -220,7 +220,9 @@ class Handler(FileSystemEventHandler):
         self.pending_changes.clear()
 
 
-def upload_data(results_folder):
+def upload_data_from_folder(results_folder: str):
+    """Monitor provided results folder and upload data changes via GitHub PRs"""
+
     observer = Observer()
     observer.schedule(Handler(results_folder), f"{results_folder}", recursive=True)
     observer.start()
