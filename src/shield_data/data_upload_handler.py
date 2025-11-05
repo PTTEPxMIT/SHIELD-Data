@@ -15,10 +15,9 @@ from watchdog.observers import Observer
 
 from .build_catalogue import build_catalogue
 
-# Configuration
-CHECK_INTERVAL = 10  # How often to check for changes (in seconds)
-# Wait 3 seconds after last event before processing (to batch multiple file changes)
-BATCH_DELAY = 3
+# Default configuration
+DEFAULT_CHECK_INTERVAL = 10  # How often to check for changes (in seconds)
+DEFAULT_BATCH_DELAY = 3  # Wait seconds after last event before processing
 
 
 class Handler(FileSystemEventHandler):
@@ -45,9 +44,11 @@ class Handler(FileSystemEventHandler):
     pending_changes: set[str]
     timer: threading.Timer | None
     session_files: set[str]
+    batch_delay: float
 
-    def __init__(self, results_folder="results"):
+    def __init__(self, results_folder="results", batch_delay=DEFAULT_BATCH_DELAY):
         self.results_folder = results_folder
+        self.batch_delay = batch_delay
         self.current_branch = None
         self.pending_changes = set()
         self.timer = None
@@ -158,7 +159,7 @@ class Handler(FileSystemEventHandler):
         if self.timer:
             self.timer.cancel()
 
-        self.timer = threading.Timer(BATCH_DELAY, self.process_batch)
+        self.timer = threading.Timer(self.batch_delay, self.process_batch)
         self.timer.start()
 
     def process_batch(self):
@@ -259,8 +260,24 @@ class Handler(FileSystemEventHandler):
         self.pending_changes.clear()
 
 
-def upload_data_from_folder(results_folder: str):
-    """Monitor provided results folder and upload data changes via GitHub PRs"""
+def upload_data_from_folder(
+    results_folder: str,
+    check_interval: float = DEFAULT_CHECK_INTERVAL,
+    batch_delay: float = DEFAULT_BATCH_DELAY,
+):
+    """Monitor provided results folder and upload data changes via GitHub PRs
+
+    Args:
+        results_folder: Path to the folder to monitor for data changes
+        check_interval: How often to check for changes (in seconds). Default: 10
+        batch_delay: Wait time after last event before processing batch (in seconds).
+                     Must be less than check_interval. Default: 3
+
+    Raises:
+        FileNotFoundError: If the results folder doesn't exist
+        NotADirectoryError: If the path is not a directory
+        ValueError: If batch_delay >= check_interval
+    """
 
     # Check if folder exists
     folder_path = Path(results_folder)
@@ -269,17 +286,25 @@ def upload_data_from_folder(results_folder: str):
     if not folder_path.is_dir():
         raise NotADirectoryError(f"Path is not a directory: {results_folder}")
 
+    # Validate timing parameters
+    if batch_delay >= check_interval:
+        raise ValueError(
+            f"batch_delay ({batch_delay}s) must be less than "
+            f"check_interval ({check_interval}s)"
+        )
+
     observer = Observer()
-    observer.schedule(Handler(results_folder), f"{results_folder}", recursive=True)
+    handler = Handler(results_folder, batch_delay)
+    observer.schedule(handler, f"{results_folder}", recursive=True)
     observer.start()
     print(
         f"Monitoring {results_folder}/ folder "
-        f"(checking every {CHECK_INTERVAL}s). "
+        f"(checking every {check_interval}s). "
         "Press Ctrl+C to stop..."
     )
     try:
         while True:
-            time.sleep(CHECK_INTERVAL)
+            time.sleep(check_interval)
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
