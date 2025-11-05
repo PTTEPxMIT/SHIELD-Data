@@ -10,6 +10,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from jinja2 import Template
+import os
 
 # Configuration
 CHECK_INTERVAL = 10  # How often to check for changes (in seconds)
@@ -29,24 +30,21 @@ class Handler(FileSystemEventHandler):
         sample_path = Path(next(iter(file_paths)))
         path_parts = sample_path.parts
 
-        date_folder = None
         run_folder = None
 
+        # Look for folder matching YY.MM.DD_run_X_HHhMM format
         for part in path_parts:
-            if re.match(r"\d{2}\.\d{2}", part):
-                date_folder = part
-            elif re.match(r"run_\d+_\d{2}h\d{2}", part):
+            if re.match(r"\d{2}\.\d{2}\.\d{2}_run_\d+_\d{2}h\d{2}", part):
                 run_folder = part
+                break
 
-        if not date_folder:
-            raise ValueError("Date folder (MM.DD format) not found in path structure")
         if not run_folder:
             raise ValueError(
-                "Run folder (run_X_HHhMM format) not found in path structure"
+                "Run folder (YY.MM.DD_run_X_HHhMM format) not found in path structure"
             )
 
         # Find metadata file in the run folder (not necessarily in current batch)
-        metadata_path = Path("results") / date_folder / run_folder / "run_metadata.json"
+        metadata_path = Path("results") / run_folder / "run_metadata.json"
 
         if not metadata_path.exists():
             raise FileNotFoundError(f"Metadata file does not exist: {metadata_path}")
@@ -70,7 +68,6 @@ class Handler(FileSystemEventHandler):
                 raise KeyError(f"Required field '{field}' missing from run_info")
 
         return {
-            "date_folder": date_folder,
             "run_folder": run_folder,
             "metadata": metadata,
             "total_files": len(file_paths),
@@ -143,9 +140,8 @@ class Handler(FileSystemEventHandler):
             self.current_branch = f"add_new_data_{unique_id}"
 
             # Create branch and initial commit
-            date_folder = run_info["date_folder"] or "unknown"
             run_folder = run_info["run_folder"] or "unknown"
-            msg = f"Add experimental data: {date_folder}/{run_folder}"
+            msg = f"Add experimental data: {run_folder}"
 
             subprocess.run("git checkout main", shell=True)
             subprocess.run(f"git checkout -b {self.current_branch}", shell=True)
@@ -184,8 +180,6 @@ class Handler(FileSystemEventHandler):
                         check=True,
                     )
                 finally:
-                    import os
-
                     os.unlink(body_file)
 
                 print(f"✅ Created branch {self.current_branch} and PR: {title}")
