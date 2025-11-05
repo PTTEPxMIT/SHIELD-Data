@@ -37,6 +37,19 @@ Issues = "https://github.com/PTTEPxMIT/SHIELD-DATA/issues"
 [tool.setuptools_scm]
 write_to = "src/shield_data/_version.py"
 
+[tool.coverage.run]
+omit = ["src/shield_data/_version.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
 [tool.mypy]
 # Suggested at https://blog.wolt.com/engineering/2021/09/30/professional-grade-mypy-configuration/
 # Goal would be to make all of the below True long-term

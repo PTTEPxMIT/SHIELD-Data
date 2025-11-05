@@ -208,3 +208,6 @@ __marimo__/
 
 # version file
 src/shield_data/_version.py
+
+# ignore vscode settings
+.vscode/
