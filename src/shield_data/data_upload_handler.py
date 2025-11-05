@@ -13,6 +13,8 @@ from jinja2 import Template
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
+from .build_catalogue import build_catalogue
+
 # Configuration
 CHECK_INTERVAL = 10  # How often to check for changes (in seconds)
 # Wait 3 seconds after last event before processing (to batch multiple file changes)
@@ -179,6 +181,11 @@ class Handler(FileSystemEventHandler):
 
             subprocess.run("git checkout main", shell=True)
             subprocess.run(f"git checkout -b {self.current_branch}", shell=True)
+
+            # Rebuild catalogue before committing
+            print("📊 Rebuilding catalogue...")
+            build_catalogue(self.results_folder)
+
             subprocess.run(f"git add {self.results_folder}/", shell=True)
 
             # Check if there are actually changes to commit
@@ -224,6 +231,11 @@ class Handler(FileSystemEventHandler):
             msg = f"Update data session - {datetime.now():%Y-%m-%d %H:%M:%S}"
 
             subprocess.run(f"git checkout {self.current_branch}", shell=True)
+
+            # Rebuild catalogue before committing
+            print("📊 Rebuilding catalogue...")
+            build_catalogue(self.results_folder)
+
             subprocess.run(f"git add {self.results_folder}/", shell=True)
 
             # Check if there are changes
