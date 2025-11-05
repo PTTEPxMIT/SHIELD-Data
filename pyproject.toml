@@ -8,12 +8,12 @@ authors = [
     { email = "darkj385@mit.edu" },
 ]
 dynamic = ["version"]
-name = "SHIELD_DAS"
-description = "SHIELD permeation rig data aquisition system"
+name = "SHIELD-DATA"
+description = "A database for results collected from the SHIELD permeation rig"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
-dependencies = ["numpy", "dash", "dash_bootstrap_components", "pandas", "keyboard", "plotly-resampler", "h-transport-materials", "uncertainties"]
+dependencies = ["watchdog", "jinja2"]
 classifiers = [
     "Natural Language :: English",
     "Topic :: Scientific/Engineering",
@@ -27,17 +27,15 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "numpy"]
+test = ["pytest", "pytest-cov"]
 lint = ["ruff", "mypy"]
-docs = ["sphinx", "sphinx-book-theme", "sphinx-design", "matplotlib"]
 
 [project.urls]
-Homepage = "https://github.com/PTTEPxMIT/SHIELD_DAS"
-Issues = "https://github.com/PTTEPxMIT/SHIELD_DAS/issues"
-
+Homepage = "https://github.com/PTTEPxMIT/SHIELD-DATA"
+Issues = "https://github.com/PTTEPxMIT/SHIELD-DATA/issues"
 
 [tool.setuptools_scm]
-write_to = "src/shield_das/_version.py"
+write_to = "src/shield-data/_version.py"
 
 [tool.mypy]
 # Suggested at https://blog.wolt.com/engineering/2021/09/30/professional-grade-mypy-configuration/
@@ -73,11 +71,10 @@ select = [
 ignore = ["UP007", "RUF012"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["shield_das"]
+known-first-party = ["shield-data"]
 known-third-party = [
-    "LabJackPython",
-    "numpy",
-    "matplotlib",
+    "watchdog",
+    "jinja2",
     "pytest",
 ]
 section-order = [
