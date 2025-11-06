@@ -68,7 +68,7 @@ Each experimental run includes a `run_metadata.json` file containing:
 ### Installing the Package
 
 ```bash
-pip install -e .
+python -m pip install shield_data
 ```
 
 ### Monitoring for New Data
