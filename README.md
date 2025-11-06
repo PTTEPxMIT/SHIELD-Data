@@ -1,4 +1,8 @@
 # SHIELD-Data
+[![CI](https://github.com/PTTEPxMIT/SHIELD-Data/actions/workflows/ci_conda.yml/badge.svg)](https://github.com/PTTEPxMIT/SHIELD-Data/actions/workflows/ci_conda.yml)
+[![codecov](https://codecov.io/gh/PTTEPxMIT/SHIELD-Data/graph/badge.svg?token=mDUOcHgDN5)](https://codecov.io/gh/PTTEPxMIT/SHIELD-Data)
+[![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![DOI](https://zenodo.org/badge/1041646727.svg)](https://doi.org/10.5281/zenodo.17544506)
 
 A repository to store and manage raw experimental data produced from the SHIELD permeation rig.
 
@@ -64,7 +68,7 @@ Each experimental run includes a `run_metadata.json` file containing:
 ### Installing the Package
 
 ```bash
-pip install -e .
+python -m pip install shield_data
 ```
 
 ### Monitoring for New Data
