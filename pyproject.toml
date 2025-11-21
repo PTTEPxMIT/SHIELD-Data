@@ -13,7 +13,7 @@ description = "A database for results collected from the SHIELD permeation rig"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
-dependencies = ["pandas", "jinja2", "watchdog"]
+dependencies = ["pandas"]
 classifiers = [
     "Natural Language :: English",
     "Topic :: Scientific/Engineering",
@@ -37,8 +37,10 @@ Issues = "https://github.com/PTTEPxMIT/SHIELD-DATA/issues"
 [tool.setuptools_scm]
 write_to = "src/shield_data/_version.py"
 
-# [tool.coverage.run]
-# omit = ["src/shield_data/_version.py"]
+[tool.coverage.run]
+source = ["src/shield_data"]
+omit = ["src/shield_data/_version.py"]
+relative_files = true
 
 [tool.coverage.report]
 exclude_lines = [

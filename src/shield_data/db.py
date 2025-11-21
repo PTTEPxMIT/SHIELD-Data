@@ -12,11 +12,6 @@ DB_PATH = Path(__file__).parent / "shield_data.db"
 
 def _get_connection() -> sqlite3.Connection:
     """Get database connection with row factory."""
-    if not DB_PATH.exists():
-        raise FileNotFoundError(
-            f"Database not found at {DB_PATH}. "
-            "The package may not be properly installed."
-        )
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -43,12 +38,9 @@ def load(run_id: str) -> pd.DataFrame:
         DataFrame with timestamp and gauge voltage measurements
     """
     with _get_connection() as conn:
-        df = pd.read_sql_query(
+        return pd.read_sql_query(
             "SELECT * FROM measurements WHERE run_id = ?", conn, params=(run_id,)
         )
-        if df.empty:
-            raise ValueError(f"No data found for run_id: {run_id}")
-        return df
 
 
 def load_metadata(run_id: str) -> dict[str, Any]:
@@ -60,14 +52,12 @@ def load_metadata(run_id: str) -> dict[str, Any]:
     Returns:
         Dictionary with run_info, gauges, and thermocouples
     """
+    import json
+
     with _get_connection() as conn:
         row = conn.execute(
             "SELECT metadata FROM runs WHERE run_id = ?", (run_id,)
         ).fetchone()
-        if not row:
-            raise ValueError(f"No metadata found for run_id: {run_id}")
-        import json
-
         return json.loads(row["metadata"])
 
 
