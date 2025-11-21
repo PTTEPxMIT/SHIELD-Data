@@ -1,12 +1,10 @@
-from .build_catalogue import build_catalogue
-from .core import catalogue, load, load_filtered, load_metadata
-from .data_upload_handler import upload_data_from_folder
+"""SHIELD-Data: Permeation rig experimental data management."""
+
+from shield_data.db import catalogue, load, load_filtered, load_metadata
 
 __all__ = [
-    "build_catalogue",
     "catalogue",
     "load",
     "load_filtered",
     "load_metadata",
-    "upload_data_from_folder",
 ]
