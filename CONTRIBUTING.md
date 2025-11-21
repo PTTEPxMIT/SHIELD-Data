@@ -42,6 +42,17 @@ When adding new experimental runs to the database:
 
 The database file must be rebuilt and committed with every data addition to ensure users get the latest data when installing the package.
 
+### Automated Validation
+
+When you open a PR, GitHub Actions will automatically:
+- ✅ Detect whether your PR adds new data or modifies code
+- ✅ Validate the structure of CSV and JSON files
+- ✅ Verify required fields are present in metadata
+- ✅ Check that the database was updated (if data was added)
+- ✅ Test database integrity
+
+The PR cannot be merged until all validation checks pass.
+
 ### Testing Your Changes
 
 Before submitting the PR, verify the database works:
