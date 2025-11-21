@@ -1,0 +1,395 @@
+name: Validate Data Submission
+
+on:
+  pull_request:
+    paths:
+      - 'run_data/**'
+      - 'src/shield_data/shield_data.db'
+
+jobs:
+  detect-change-type:
+    runs-on: ubuntu-latest
+    outputs:
+      has-data-changes: ${{ steps.check.outputs.has_data }}
+      has-db-changes: ${{ steps.check.outputs.has_db }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect changes
+        id: check
+        run: |
+          # Get list of changed files
+          git fetch origin ${{ github.base_ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          
+          # Check for data changes
+          if echo "$CHANGED_FILES" | grep -q '^run_data/'; then
+            echo "has_data=true" >> $GITHUB_OUTPUT
+            echo "✓ Detected changes in run_data/"
+          else
+            echo "has_data=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for database changes
+          if echo "$CHANGED_FILES" | grep -q '^src/shield_data/shield_data.db$'; then
+            echo "has_db=true" >> $GITHUB_OUTPUT
+            echo "✓ Detected changes to shield_data.db"
+          else
+            echo "has_db=false" >> $GITHUB_OUTPUT
+          fi
+
+  validate-data-structure:
+    runs-on: ubuntu-latest
+    needs: detect-change-type
+    if: needs.detect-change-type.outputs.has-data-changes == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install pandas
+      
+      - name: Create validation script
+        run: |
+          cat > validate_structure.py << 'SCRIPT'
+          import sys
+          import json
+          import pandas as pd
+          from pathlib import Path
+          
+          def validate_run(folder):
+              errors = []
+              folder_path = Path(folder)
+              
+              print(f"\nChecking: {folder}")
+              
+              # Check CSV
+              csv_path = folder_path / "pressure_gauge_data.csv"
+              if not csv_path.exists():
+                  errors.append(f"Missing: {csv_path}")
+              else:
+                  try:
+                      df = pd.read_csv(csv_path)
+                      required_cols = ["timestamp", "WGM701_voltage", "CVM211_voltage", 
+                                     "Baratron626D_1KT_voltage", "Baratron626D_1T_voltage"]
+                      missing = [col for col in required_cols if col not in df.columns]
+                      if missing:
+                          errors.append(f"CSV missing columns: {missing}")
+                      else:
+                          print(f"  ✓ CSV valid ({len(df)} rows)")
+                  except Exception as e:
+                      errors.append(f"CSV error: {e}")
+              
+              # Check JSON
+              json_path = folder_path / "run_metadata.json"
+              if not json_path.exists():
+                  errors.append(f"Missing: {json_path}")
+              else:
+                  try:
+                      with open(json_path) as f:
+                          metadata = json.load(f)
+                      
+                      required_keys = ["run_info", "gauges", "thermocouples"]
+                      missing = [k for k in required_keys if k not in metadata]
+                      if missing:
+                          errors.append(f"JSON missing keys: {missing}")
+                      else:
+                          run_info = metadata["run_info"]
+                          required_info = ["date", "start_time", "run_type", "furnace_setpoint"]
+                          missing_info = [k for k in required_info if k not in run_info]
+                          if missing_info:
+                              errors.append(f"run_info missing: {missing_info}")
+                          else:
+                              print(f"  ✓ JSON valid ({run_info.get('run_type')}, {run_info.get('date')})")
+                  except Exception as e:
+                      errors.append(f"JSON error: {e}")
+              
+              return errors
+          
+          if __name__ == "__main__":
+              import subprocess
+              
+              # Get changed run folders
+              result = subprocess.run(
+                  ["git", "diff", "--name-only", "origin/${{ github.base_ref }}...HEAD"],
+                  capture_output=True, text=True
+              )
+              
+              changed_files = result.stdout.strip().split('\n')
+              run_folders = set()
+              for f in changed_files:
+                  if f.startswith('run_data/') and '/' in f[9:]:
+                      folder = '/'.join(f.split('/')[:2])
+                      run_folders.add(folder)
+              
+              print(f"Found {len(run_folders)} run folder(s) to validate")
+              
+              all_errors = []
+              for folder in sorted(run_folders):
+                  if Path(folder).exists():
+                      errors = validate_run(folder)
+                      if errors:
+                          print(f"  ❌ Errors:")
+                          for err in errors:
+                              print(f"     - {err}")
+                          all_errors.extend(errors)
+              
+              if all_errors:
+                  print(f"\n❌ Validation failed with {len(all_errors)} error(s)")
+                  sys.exit(1)
+              else:
+                  print("\n✅ All data files are valid")
+          SCRIPT
+      
+      - name: Validate new run folders
+        run: python validate_structure.py
+
+  check-database-updated:
+    runs-on: ubuntu-latest
+    needs: detect-change-type
+    if: needs.detect-change-type.outputs.has-data-changes == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check if database was updated
+        run: |
+          if [ "${{ needs.detect-change-type.outputs.has_db }}" != "true" ]; then
+            echo "❌ ERROR: New data added but shield_data.db was not updated!"
+            echo ""
+            echo "You must rebuild the database when adding new run data:"
+            echo "  python src/shield_data/build_db.py"
+            echo ""
+            echo "Then commit both the new data AND the updated database."
+            exit 1
+          else
+            echo "✅ Database was updated with the new data"
+          fi
+
+  post-pr-summary:
+    runs-on: ubuntu-latest
+    needs: [detect-change-type, validate-data-structure]
+    if: needs.detect-change-type.outputs.has-data-changes == 'true'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install pandas
+      
+      - name: Generate PR summary
+        id: summary
+        run: |
+          cat > generate_summary.py << 'SCRIPT'
+          import json
+          import pandas as pd
+          from pathlib import Path
+          import subprocess
+          
+          # Get changed run folders
+          result = subprocess.run(
+              ["git", "diff", "--name-only", "origin/${{ github.base_ref }}...HEAD"],
+              capture_output=True, text=True
+          )
+          
+          changed_files = result.stdout.strip().split('\n')
+          run_folders = set()
+          for f in changed_files:
+              if f.startswith('run_data/') and '/' in f[9:]:
+                  folder = '/'.join(f.split('/')[:2])
+                  run_folders.add(folder)
+          
+          # Check if database was updated
+          db_updated = any('src/shield_data/shield_data.db' in f for f in changed_files)
+          
+          # Extract metadata from each run
+          runs_info = []
+          for folder in sorted(run_folders):
+              folder_path = Path(folder)
+              if not folder_path.exists():
+                  continue
+                  
+              json_path = folder_path / "run_metadata.json"
+              csv_path = folder_path / "pressure_gauge_data.csv"
+              
+              run_id = folder_path.name
+              
+              if json_path.exists():
+                  with open(json_path) as f:
+                      metadata = json.load(f)
+                  run_info = metadata.get("run_info", {})
+              else:
+                  run_info = {}
+              
+              measurement_count = 0
+              if csv_path.exists():
+                  try:
+                      df = pd.read_csv(csv_path)
+                      measurement_count = len(df)
+                  except:
+                      pass
+              
+              runs_info.append({
+                  "run_id": run_id,
+                  "date": run_info.get("date", "N/A"),
+                  "start_time": run_info.get("start_time", "N/A"),
+                  "run_type": run_info.get("run_type", "N/A"),
+                  "furnace_setpoint": run_info.get("furnace_setpoint", "N/A"),
+                  "material": run_info.get("material", "N/A"),
+                  "coating": run_info.get("coating", "N/A"),
+                  "measurements": measurement_count
+              })
+          
+          # Generate markdown summary
+          summary = ["## 🔬 Data Submission Summary", ""]
+          
+          if runs_info:
+              summary.append(f"**{len(runs_info)} run(s)** detected in this PR:")
+              summary.append("")
+              
+              for info in runs_info:
+                  summary.append(f"### 📊 `{info['run_id']}`")
+                  summary.append("")
+                  summary.append(f"- **Date:** {info['date']}")
+                  summary.append(f"- **Start Time:** {info['start_time']}")
+                  summary.append(f"- **Run Type:** {info['run_type']}")
+                  summary.append(f"- **Furnace Setpoint:** {info['furnace_setpoint']}K")
+                  summary.append(f"- **Material:** {info['material']}")
+                  summary.append(f"- **Coating:** {info['coating']}")
+                  summary.append(f"- **Measurements:** {info['measurements']:,}")
+                  summary.append("")
+          
+          summary.append("---")
+          summary.append("")
+          
+          # Database status
+          if db_updated:
+              summary.append("### ✅ Database Status")
+              summary.append("")
+              summary.append("The database file `shield_data.db` has been updated.")
+              summary.append("")
+              summary.append("Once all checks pass, this PR is ready for review!")
+          else:
+              summary.append("### ⚠️ Database Not Updated")
+              summary.append("")
+              summary.append("The database needs to be rebuilt to include this new data.")
+              summary.append("")
+              summary.append("**Please run:**")
+              summary.append("```bash")
+              summary.append("python src/shield_data/build_db.py")
+              summary.append("git add src/shield_data/shield_data.db")
+              summary.append("git commit -m 'Rebuild database with new run data'")
+              summary.append("git push")
+              summary.append("```")
+          
+          # Write to file
+          with open('pr_summary.md', 'w') as f:
+              f.write('\n'.join(summary))
+          
+          print("Summary generated successfully")
+          SCRIPT
+          
+          python generate_summary.py
+      
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('pr_summary.md', 'utf8');
+            
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🔬 Data Submission Summary')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }
+
+  verify-database-integrity:
+    runs-on: ubuntu-latest
+    needs: [detect-change-type, validate-data-structure]
+    if: needs.detect-change-type.outputs.has-db-changes == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install package
+        run: |
+          pip install -e .
+      
+      - name: Create database verification script
+        run: |
+          cat > verify_db.py << 'SCRIPT'
+          import shield_data as sd
+          import sys
+          
+          try:
+              cat = sd.catalogue()
+              print(f"✓ Database contains {len(cat)} runs")
+              
+              for run_id in cat['run_id']:
+                  df = sd.load(run_id)
+                  if df.empty:
+                      print(f"❌ Run {run_id} has no measurement data")
+                      sys.exit(1)
+                  metadata = sd.load_metadata(run_id)
+                  if not metadata:
+                      print(f"❌ Run {run_id} has no metadata")
+                      sys.exit(1)
+              
+              total = sum(len(sd.load(rid)) for rid in cat['run_id'])
+              print(f"✓ All {len(cat)} runs have valid data and metadata")
+              print(f"✓ Total measurements: {total:,}")
+              
+          except Exception as e:
+              print(f"❌ Database integrity check failed: {e}")
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
+          SCRIPT
+      
+      - name: Verify database integrity
+        run: python verify_db.py
