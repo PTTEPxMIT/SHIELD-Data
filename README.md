@@ -4,186 +4,210 @@
 [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![DOI](https://zenodo.org/badge/1041646727.svg)](https://doi.org/10.5281/zenodo.17544506)
 
-A repository to store and manage raw experimental data produced from the SHIELD permeation rig.
+A Python package providing experimental permeation data from the SHIELD hydrogen permeation rig.
 
 ## Overview
 
-This repository provides an automated data management system for SHIELD experimental runs. It includes:
+SHIELD-Data bundles experimental data in an SQLite database for easy access and analysis. The package includes:
 
-- **Automated Data Upload**: Watchdog-based monitoring system that detects new experimental data and automatically creates GitHub pull requests
-- **Data Cataloging**: Automatic generation of a searchable catalogue (CSV + README) containing metadata for all experimental runs
-- **Structured Storage**: Organized folder structure with run metadata, pressure gauge data, and backups
-- **PR-based Workflow**: All data additions are tracked through GitHub pull requests with detailed metadata
+- **826,000+ measurements** from 8 experimental runs
+- **SQLite database** for efficient querying and filtering
+- **Simple API** for loading data and metadata
+- **Bundled with pip install** - no external data downloads needed
+
+## Installation
+
+```bash
+pip install shield-data
+```
+
+## Quick Start
+
+```python
+import shield_data as sd
+
+# View all available runs
+cat = sd.catalogue()
+print(cat[["run_id", "date", "furnace_setpoint"]])
+
+# Load data from a specific run
+df = sd.load("25.10.06_run_1_10h41")
+
+# Load all runs at 500K
+df_500k = sd.load_filtered(furnace_setpoint=500)
+
+# Get run metadata
+metadata = sd.load_metadata("25.10.06_run_1_10h41")
+print(metadata["run_info"])
+```
+
+## API Reference
+
+### `catalogue()`
+Load the catalogue of all experimental runs.
+
+```python
+cat = sd.catalogue()
+# Returns DataFrame with columns:
+#   run_id, date, start_time, run_type, furnace_setpoint, material, coating
+```
+
+### `load(run_id)`
+Load pressure gauge data for a specific run.
+
+```python
+df = sd.load("25.10.06_run_1_10h41")
+# Returns DataFrame with columns:
+#   timestamp, WGM701_voltage, CVM211_voltage,
+#   Baratron626D_1KT_voltage, Baratron626D_1T_voltage, run_id
+```
+
+### `load_metadata(run_id)`
+Load metadata for a specific run.
+
+```python
+metadata = sd.load_metadata("25.10.06_run_1_10h41")
+# Returns dict with keys: version, run_info, gauges, thermocouples
+```
+
+### `load_filtered(**filters)`
+Load data for runs matching filter criteria.
+
+```python
+# Filter by temperature
+df = sd.load_filtered(furnace_setpoint=500)
+
+# Filter by run type and date
+df = sd.load_filtered(run_type="permeation_exp", date="2025-10-06")
+
+# Multiple runs combined into single DataFrame
+```
+
+## Example Analysis
+
+```python
+import shield_data as sd
+import matplotlib.pyplot as plt
+
+# Load all 500K experiments
+df = sd.load_filtered(furnace_setpoint=500)
+
+# Plot pressure over time for each run
+for run_id in df["run_id"].unique():
+    run_data = df[df["run_id"] == run_id]
+    plt.plot(
+        run_data.index,
+        run_data["Baratron626D_1T_voltage"],
+        label=run_id
+    )
+
+plt.xlabel("Measurement Number")
+plt.ylabel("Downstream Pressure (V)")
+plt.legend()
+plt.title("500K Permeation Experiments")
+plt.show()
+```
+
+## Data Structure
+
+### Database Schema
+
+The SQLite database contains two tables:
+
+**runs table:**
+- `run_id` (TEXT, PRIMARY KEY)
+- `date` (TEXT)
+- `start_time` (TEXT)
+- `run_type` (TEXT)
+- `furnace_setpoint` (INTEGER)
+- `material` (TEXT, nullable)
+- `coating` (TEXT, nullable)
+- `metadata` (TEXT, JSON)
+
+**measurements table:**
+- `id` (INTEGER, PRIMARY KEY)
+- `run_id` (TEXT, FOREIGN KEY)
+- `timestamp` (TEXT)
+- `WGM701_voltage` (REAL)
+- `CVM211_voltage` (REAL)
+- `Baratron626D_1KT_voltage` (REAL)
+- `Baratron626D_1T_voltage` (REAL)
+
+### Run Metadata
+
+Each run includes detailed metadata:
+- Run information (type, date, furnace setpoint)
+- Gauge configurations (4 pressure gauges)
+- Valve timing information
+- Recording parameters
 
 ## Repository Structure
 
 ```
 SHIELD-Data/
-├── run_data/                          # Main data storage folder
-│   ├── YY.MM.DD_run_X_HHhMM/         # Individual run folders
-│   │   ├── pressure_gauge_data.csv   # Experimental measurements
-│   │   ├── run_metadata.json         # Run configuration and metadata
-│   │   └── backup/                   # Backup data files
-│   ├── runs_catalogue.csv            # Auto-generated catalogue
-│   └── README.md                     # Auto-generated table view of catalogue
-└── src/shield_data/                  # Python package
-    ├── data_upload_handler.py        # Watchdog monitoring and PR creation
-    ├── build_catalogue.py            # Catalogue generation
-    └── pr_template.md                # PR body template
+├── run_data/                     # Raw data (not in package)
+│   ├── YY.MM.DD_run_X_HHhMM/    # Individual run folders
+│   │   ├── pressure_gauge_data.csv
+│   │   └── run_metadata.json
+│   └── ...
+├── src/shield_data/
+│   ├── db.py                     # Main API
+│   ├── build_db.py               # Database builder
+│   └── shield_data.db            # SQLite database (98 MB)
+└── test/                         # Unit tests
 ```
 
-## Features
+## Contributing
 
-### Automated Data Upload
+### Adding New Data
 
-The `upload_data_from_folder()` function monitors a specified folder for new experimental data and automatically:
+When adding new experimental runs:
 
-1. Detects new or modified run data
-2. Validates folder structure and metadata
-3. Creates a git branch and commits changes
-4. Regenerates the data catalogue
-5. Opens a pull request with detailed run information
+1. Add run folder to `run_data/YY.MM.DD_run_X_HHhMM/`
+2. **Rebuild database** (required):
+   ```bash
+   python src/shield_data/build_db.py
+   ```
+3. Commit both new data AND updated `shield_data.db`
+4. Submit PR (see [CONTRIBUTING.md](CONTRIBUTING.md))
 
-### Data Catalogue
+**Note:** PRs adding data without rebuilding the database will not be merged.
 
-Every time data is added, the catalogue is automatically updated with:
-- Run ID (folder name)
-- Relative path to data
-- Run type (e.g., permeation_exp)
-- Date
-- Furnace setpoint
-- Material (if available)
-- Coating (if available)
+### Development
 
-### Run Metadata
-
-Each experimental run includes a `run_metadata.json` file containing:
-- Run information (type, date, furnace setpoint, etc.)
-- Gauge configurations
-- Valve timing information
-- Recording parameters
-
-## Usage
-
-### Installing the Package
-
-```bash
-python -m pip install shield_data
-```
-
-### Monitoring for New Data
+To rebuild the database from raw data:
 
 ```python
-from shield_data import upload_data_from_folder
+from shield_data.build_db import build_database
 
-# Monitor the run_data folder with default settings
-upload_data_from_folder("run_data")
-
-# Custom monitoring intervals
-upload_data_from_folder(
-    "run_data",
-    check_interval=5,    # Check every 5 seconds
-    batch_delay=2        # Wait 2 seconds after last change before processing
-)
-```
-
-### Building the Catalogue
-
-```python
-from shield_data import build_catalogue
-
-# Regenerate the catalogue manually
-build_catalogue("run_data")
-```
-
-### Loading and Analyzing Data
-
-The package provides simple functions to load and filter experimental data:
-
-#### View the Catalogue
-
-```python
-from shield_data import catalogue
-
-# Load the catalogue as a pandas DataFrame
-cat = catalogue()
-print(cat)
-```
-
-#### Load a Specific Run
-
-```python
-from shield_data import load
-
-# Load pressure gauge data for a specific run
-df = load("25.10.06_run_1_10h41")
-
-# The DataFrame includes all measurement data plus a 'run_id' column
-print(df.head())
-```
-
-#### Load Run Metadata
-
-```python
-from shield_data import load_metadata
-
-# Load the metadata JSON as a dictionary
-metadata = load_metadata("25.10.06_run_1_10h41")
-
-# Access specific metadata fields
-run_info = metadata["run_info"]
-print(f"Run type: {run_info['run_type']}")
-print(f"Furnace setpoint: {run_info['furnace_setpoint']} K")
-print(f"Start time: {run_info['start_time']}")
-```
-
-#### Filter and Load Multiple Runs
-
-```python
-from shield_data import load_filtered
-
-# Load all runs at a specific temperature
-df_500k = load_filtered(furnace_setpoint=500)
-
-# Load runs by type and date
-df_oct6 = load_filtered(run_type="permeation_exp", date="2025-10-06")
-
-# Filter by material (when available)
-df_material = load_filtered(material="stainless_steel")
-
-# The result is a combined DataFrame with data from all matching runs
-print(f"Loaded {len(df_500k)} data points from {df_500k['run_id'].nunique()} runs")
-```
-
-#### Example Analysis Workflow
-
-```python
-from shield_data import catalogue, load_filtered
-import matplotlib.pyplot as plt
-
-# View available runs
-cat = catalogue()
-print(cat[["run_id", "date", "furnace_setpoint"]])
-
-# Load all 500K experiments
-df = load_filtered(furnace_setpoint=500)
-
-# Group by run and plot
-for run_id in df["run_id"].unique():
-    run_data = df[df["run_id"] == run_id]
-    plt.plot(run_data["time"], run_data["pressure"], label=run_id)
-
-plt.xlabel("Time (s)")
-plt.ylabel("Pressure")
-plt.legend()
-plt.show()
+build_database("run_data")  # Creates src/shield_data/shield_data.db
 ```
 
 ## Requirements
 
 - Python >= 3.9
-- watchdog
-- jinja2
 - pandas
-- Git
-- GitHub CLI (`gh`) configured with authentication
+
+## License
+
+Apache License 2.0
+
+## Citation
+
+If you use this data in your research, please cite:
+
+```bibtex
+@software{shield_data_2025,
+  author = {Dark, James},
+  title = {SHIELD-Data: Hydrogen Permeation Experimental Data},
+  year = {2025},
+  doi = {10.5281/zenodo.17544506},
+  url = {https://github.com/PTTEPxMIT/SHIELD-Data}
+}
+```
+
+## Contact
+
+- **Author:** James Dark
+- **Email:** darkj385@mit.edu
+- **Repository:** https://github.com/PTTEPxMIT/SHIELD-Data
