@@ -24,12 +24,19 @@ jobs:
           git fetch origin ${{ github.base_ref }}
           CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
           
-          # Check for data changes
-          if echo "$CHANGED_FILES" | grep -q '^run_data/'; then
+          echo "=== Changed files in this PR ==="
+          echo "$CHANGED_FILES"
+          echo "================================"
+          
+          # Check for data changes (exclude .github directory)
+          DATA_CHANGES=$(echo "$CHANGED_FILES" | grep '^run_data/' || true)
+          if [ -n "$DATA_CHANGES" ]; then
             echo "has_data=true" >> $GITHUB_OUTPUT
-            echo "✓ Detected changes in run_data/"
+            echo "✓ Detected changes in run_data/:"
+            echo "$DATA_CHANGES"
           else
             echo "has_data=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changes in run_data/"
           fi
           
           # Check for database changes
@@ -38,6 +45,7 @@ jobs:
             echo "✓ Detected changes to shield_data.db"
           else
             echo "has_db=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changes to shield_data.db"
           fi
 
   validate-data-structure:
