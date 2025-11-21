@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def build_database(data_dir: str | Path = "run_data", output: str | Path = None):
+def build_database(data_dir: str | Path = "run_data", output: str | Path | None = None):
     """Build SQLite database from run data folder.
 
     Args:
@@ -68,10 +68,6 @@ def build_database(data_dir: str | Path = "run_data", output: str | Path = None)
         run_id = run_folder.name
         metadata_file = run_folder / "run_metadata.json"
         data_file = run_folder / "pressure_gauge_data.csv"
-
-        if not metadata_file.exists() or not data_file.exists():
-            print(f"Skipping {run_id}: missing files")
-            continue
 
         # Load metadata
         with open(metadata_file) as f:
