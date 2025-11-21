@@ -162,7 +162,14 @@ jobs:
       
       - name: Check if database was updated
         run: |
-          if [ "${{ needs.detect-change-type.outputs.has-db-changes }}" != "true" ]; then
+          HAS_DATA="${{ needs.detect-change-type.outputs.has-data-changes }}"
+          HAS_DB="${{ needs.detect-change-type.outputs.has-db-changes }}"
+          
+          echo "Data changes detected: $HAS_DATA"
+          echo "Database changes detected: $HAS_DB"
+          
+          # Only check database if data was actually changed
+          if [ "$HAS_DATA" = "true" ] && [ "$HAS_DB" != "true" ]; then
             echo "❌ ERROR: New data added but shield_data.db was not updated!"
             echo ""
             echo "You must rebuild the database when adding new run data:"
@@ -170,8 +177,10 @@ jobs:
             echo ""
             echo "Then commit both the new data AND the updated database."
             exit 1
-          else
+          elif [ "$HAS_DATA" = "true" ] && [ "$HAS_DB" = "true" ]; then
             echo "✅ Database was updated with the new data"
+          else
+            echo "ℹ️ No data changes detected, skipping database check"
           fi
 
   post-pr-summary:
