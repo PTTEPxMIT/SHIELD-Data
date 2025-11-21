@@ -28,15 +28,16 @@ jobs:
           echo "$CHANGED_FILES"
           echo "================================"
           
-          # Check for data changes (exclude .github directory)
-          DATA_CHANGES=$(echo "$CHANGED_FILES" | grep '^run_data/' || true)
+          # Check for data changes (only actual run folders, not README or catalogue files)
+          # Run folders have format: run_data/YY.MM.DD_run_N_HHhMM/
+          DATA_CHANGES=$(echo "$CHANGED_FILES" | grep '^run_data/[0-9]' || true)
           if [ -n "$DATA_CHANGES" ]; then
             echo "has_data=true" >> $GITHUB_OUTPUT
-            echo "✓ Detected changes in run_data/:"
+            echo "✓ Detected changes in run data folders:"
             echo "$DATA_CHANGES"
           else
             echo "has_data=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No changes in run_data/"
+            echo "ℹ️ No changes to run data folders (only doc/catalog files or no run_data changes)"
           fi
           
           # Check for database changes
