@@ -79,8 +79,8 @@ jobs:
               else:
                   try:
                       df = pd.read_csv(csv_path)
-                      required_cols = ["timestamp", "WGM701_voltage", "CVM211_voltage", 
-                                     "Baratron626D_1KT_voltage", "Baratron626D_1T_voltage"]
+                      required_cols = ["RealTimestamp", "WGM701_Voltage (V)", "CVM211_Voltage (V)", 
+                                     "Baratron626D_1KT_Voltage (V)", "Baratron626D_1T_Voltage (V)"]
                       missing = [col for col in required_cols if col not in df.columns]
                       if missing:
                           errors.append(f"CSV missing columns: {missing}")
@@ -162,7 +162,7 @@ jobs:
       
       - name: Check if database was updated
         run: |
-          if [ "${{ needs.detect-change-type.outputs.has_db }}" != "true" ]; then
+          if [ "${{ needs.detect-change-type.outputs.has-db-changes }}" != "true" ]; then
             echo "❌ ERROR: New data added but shield_data.db was not updated!"
             echo ""
             echo "You must rebuild the database when adding new run data:"
@@ -293,10 +293,8 @@ jobs:
               summary.append("**Please run:**")
               summary.append("```bash")
               summary.append("python src/shield_data/build_db.py")
-              summary.append("git add src/shield_data/shield_data.db")
-              summary.append("git commit -m 'Rebuild database with new run data'")
-              summary.append("git push")
               summary.append("```")
+              summary.append("and commit the updated `shield_data.db` file.")
           
           # Write to file
           with open('pr_summary.md', 'w') as f:
