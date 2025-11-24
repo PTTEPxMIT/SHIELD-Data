@@ -13,7 +13,7 @@ jobs:
       has-data-changes: ${{ steps.check.outputs.has_data }}
       has-db-changes: ${{ steps.check.outputs.has_db }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       
@@ -54,7 +54,7 @@ jobs:
     needs: detect-change-type
     if: needs.detect-change-type.outputs.has-data-changes == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       
@@ -167,7 +167,7 @@ jobs:
     needs: detect-change-type
     if: needs.detect-change-type.outputs.has-data-changes == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Check if database was updated
         run: |
@@ -199,7 +199,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       
@@ -365,7 +365,7 @@ jobs:
     needs: [detect-change-type, validate-data-structure]
     if: needs.detect-change-type.outputs.has-db-changes == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python
         uses: actions/setup-python@v5
