@@ -67,7 +67,7 @@ def build_database(data_dir: str | Path = "run_data", output: str | Path | None 
     for run_folder in run_folders:
         run_id = run_folder.name
         metadata_file = run_folder / "run_metadata.json"
-        data_file = run_folder / "pressure_gauge_data.csv"
+        data_file = run_folder / "shield_data.csv"
 
         # Load metadata
         with open(metadata_file) as f:
