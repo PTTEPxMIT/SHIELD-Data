@@ -53,7 +53,7 @@ def sample_run_data(tmp_path):
             "Baratron626D_1T_Voltage (V)": [4.5, 4.6, 4.7],
         }
     )
-    df1.to_csv(run1_dir / "pressure_gauge_data.csv", index=False)
+    df1.to_csv(run1_dir / "shield_data.csv", index=False)
 
     # Create second run
     run2_dir = data_dir / "25.11.21_run_2_09h15"
@@ -84,7 +84,7 @@ def sample_run_data(tmp_path):
             "Baratron626D_1T_Voltage (V)": [8.1, 8.2],
         }
     )
-    df2.to_csv(run2_dir / "pressure_gauge_data.csv", index=False)
+    df2.to_csv(run2_dir / "shield_data.csv", index=False)
 
     return data_dir
 
@@ -285,7 +285,7 @@ def test_database_handles_missing_optional_fields(tmp_path):
             "Baratron626D_1T_Voltage (V)": [4.0],
         }
     )
-    df.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    df.to_csv(run_dir / "shield_data.csv", index=False)
 
     db_path = tmp_path / "minimal.db"
     build_db.build_database(data_dir, db_path)
@@ -350,7 +350,7 @@ def test_large_dataset_performance(tmp_path):
             ],
         }
     )
-    df.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    df.to_csv(run_dir / "shield_data.csv", index=False)
 
     db_path = tmp_path / "large.db"
 

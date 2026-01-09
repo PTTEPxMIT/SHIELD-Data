@@ -57,7 +57,7 @@ def test_db(tmp_path):
             "Baratron626D_1T_Voltage (V)": [4.1, 4.2],
         }
     )
-    df1.to_csv(run1_dir / "pressure_gauge_data.csv", index=False)
+    df1.to_csv(run1_dir / "shield_data.csv", index=False)
 
     # Create sample run 2 with different setpoint
     run2_dir = data_dir / "25.10.07_run_1_08h16"
@@ -92,7 +92,7 @@ def test_db(tmp_path):
             "Baratron626D_1T_Voltage (V)": [8.1, 8.2, 8.3],
         }
     )
-    df2.to_csv(run2_dir / "pressure_gauge_data.csv", index=False)
+    df2.to_csv(run2_dir / "shield_data.csv", index=False)
 
     # Build database
     db_path = tmp_path / "test.db"
