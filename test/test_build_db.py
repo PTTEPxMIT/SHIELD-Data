@@ -60,7 +60,7 @@ def single_run_dir(temp_data_dir, sample_metadata, sample_csv_data):
         json.dump(sample_metadata, f)
 
     # Write CSV
-    sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    sample_csv_data.to_csv(run_dir / "shield_data.csv", index=False)
 
     return temp_data_dir
 
@@ -387,7 +387,7 @@ def test_multiple_runs_are_processed(
         run_dir.mkdir()
         with open(run_dir / "run_metadata.json", "w") as f:
             json.dump(sample_metadata, f)
-        sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+        sample_csv_data.to_csv(run_dir / "shield_data.csv", index=False)
 
     output = tmp_path / "test.db"
     build_database(temp_data_dir, output)
@@ -410,7 +410,7 @@ def test_runs_are_processed_in_sorted_order(
         run_dir.mkdir()
         with open(run_dir / "run_metadata.json", "w") as f:
             json.dump(sample_metadata, f)
-        sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+        sample_csv_data.to_csv(run_dir / "shield_data.csv", index=False)
 
     output = tmp_path / "test.db"
     build_database(temp_data_dir, output)
@@ -431,14 +431,14 @@ def test_hidden_directories_are_skipped(
     run_dir.mkdir()
     with open(run_dir / "run_metadata.json", "w") as f:
         json.dump(sample_metadata, f)
-    sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    sample_csv_data.to_csv(run_dir / "shield_data.csv", index=False)
 
     # Create hidden directory
     hidden_dir = temp_data_dir / ".hidden_run"
     hidden_dir.mkdir()
     with open(hidden_dir / "run_metadata.json", "w") as f:
         json.dump(sample_metadata, f)
-    sample_csv_data.to_csv(hidden_dir / "pressure_gauge_data.csv", index=False)
+    sample_csv_data.to_csv(hidden_dir / "shield_data.csv", index=False)
 
     output = tmp_path / "test.db"
     build_database(temp_data_dir, output)
@@ -497,7 +497,7 @@ def test_missing_metadata_file_raises_error(temp_data_dir, sample_csv_data, tmp_
     run_dir = temp_data_dir / "25.10.06_run_1_10h41"
     run_dir.mkdir()
     # Only create CSV, no JSON
-    sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    sample_csv_data.to_csv(run_dir / "shield_data.csv", index=False)
 
     output = tmp_path / "test.db"
 
@@ -506,7 +506,7 @@ def test_missing_metadata_file_raises_error(temp_data_dir, sample_csv_data, tmp_
 
 
 def test_missing_csv_file_raises_error(temp_data_dir, sample_metadata, tmp_path):
-    """Test that missing pressure_gauge_data.csv raises FileNotFoundError."""
+    """Test that missing shield_data.csv raises FileNotFoundError."""
     run_dir = temp_data_dir / "25.10.06_run_1_10h41"
     run_dir.mkdir()
     # Only create JSON, no CSV
@@ -526,7 +526,7 @@ def test_malformed_json_raises_error(temp_data_dir, sample_csv_data, tmp_path):
     # Create malformed JSON
     with open(run_dir / "run_metadata.json", "w") as f:
         f.write("{invalid json")
-    sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    sample_csv_data.to_csv(run_dir / "shield_data.csv", index=False)
 
     output = tmp_path / "test.db"
 
