@@ -73,6 +73,25 @@ metadata = sd.load_metadata("YY.MM.DD_run_X_HHhMM")
 print(metadata["run_info"])
 ```
 
+## Branches and Pull Requests
+
+`main` is protected — all changes land through a pull request, including your own.
+
+Name branches `<initials>/<topic>`, e.g. `cw/fix-baratron-scaling`. The initials prefix
+answers the question that actually comes up months later: whose branch is this, and is
+it safe to delete?
+
+```bash
+git switch main && git pull
+git switch -c cw/<topic>
+# work, commit
+git push -u origin cw/<topic>
+gh pr create --template code_change.md   # or data_addition.md
+```
+
+PRs are squash-merged, so the PR title becomes the commit subject on `main` — write it
+as the message you'd want to read in `git log`.
+
 ## Code Contributions
 
 For code changes to the package itself:

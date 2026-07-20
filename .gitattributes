@@ -1,0 +1,4 @@
+# The bundled SQLite database is a build artifact (rebuilt by build_db.py).
+# Mark it generated so it collapses in PR diffs and is excluded from language stats.
+src/shield_data/shield_data.db binary linguist-generated=true
+src/shield_data/_version.py linguist-generated=true
