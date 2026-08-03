@@ -17,6 +17,9 @@ permissions:
 
 jobs:
   release-build:
+    # data-* tags are rolling data releases (see build_db_release.yml), not
+    # package releases — they must not trigger a PyPI upload.
+    if: ${{ !startsWith(github.event.release.tag_name, 'data-') }}
     runs-on: ubuntu-latest
 
     steps:

@@ -1,0 +1,84 @@
+name: Build Database Release
+
+# Rebuilds shield_data.db from run_data/ whenever data lands on main, and
+# attaches it (gzipped, with a checksum manifest) to the rolling `data-latest`
+# GitHub release. The shield_data package downloads and caches that release on
+# first use — the database is never committed to git.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'run_data/**'
+      - 'src/shield_data/build_db.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-db-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pandas
+
+      - name: Build database
+        run: python src/shield_data/build_db.py --data-dir run_data --output shield_data.db
+
+      - name: Compress and generate manifest
+        run: |
+          python - << 'EOF'
+          import gzip
+          import hashlib
+          import json
+          import os
+          import sqlite3
+          from datetime import datetime, timezone
+
+          raw = open("shield_data.db", "rb").read()
+          sha = hashlib.sha256(raw).hexdigest()
+          with gzip.open("shield_data.db.gz", "wb", compresslevel=9) as f:
+              f.write(raw)
+
+          conn = sqlite3.connect("shield_data.db")
+          runs = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+          measurements = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+          conn.close()
+
+          manifest = {
+              "sha256": sha,
+              "runs": runs,
+              "measurements": measurements,
+              "size_bytes": len(raw),
+              "commit": os.environ.get("GITHUB_SHA", ""),
+              "built_at": datetime.now(timezone.utc).isoformat(),
+          }
+          with open("manifest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          print(json.dumps(manifest, indent=2))
+          EOF
+
+      - name: Upload to rolling data release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view data-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create data-latest \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "SHIELD data (latest)" \
+              --notes "Rolling release: the latest shield_data.db built from run_data on main. Updated automatically by CI — do not edit by hand." \
+              --latest=false
+          gh release upload data-latest shield_data.db.gz manifest.json \
+            --repo "$GITHUB_REPOSITORY" --clobber

@@ -211,3 +211,5 @@ src/shield_data/_version.py
 
 # ignore vscode settings
 .vscode/
+# Built database — published to the data-latest GitHub release by CI, never committed
+src/shield_data/shield_data.db

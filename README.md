@@ -148,10 +148,15 @@ SHIELD-Data/
 │   └── ...
 ├── src/shield_data/
 │   ├── db.py                     # Main API
-│   ├── build_db.py               # Database builder
-│   └── shield_data.db            # SQLite database (98 MB)
+│   └── build_db.py               # Database builder
 └── test/                         # Unit tests
 ```
+
+The SQLite database itself is not stored in git: CI builds it from `run_data/`
+and publishes it to the [`data-latest` release](https://github.com/PTTEPxMIT/SHIELD-Data/releases/tag/data-latest).
+The package downloads and caches it on first use; refresh with
+`shield_data.update_database()`, or pin a local file via the `SHIELD_DATA_DB`
+environment variable.
 
 ## Contributing
 
@@ -160,14 +165,10 @@ SHIELD-Data/
 When adding new experimental runs:
 
 1. Add run folder to `run_data/YY.MM.DD_run_X_HHhMM/`
-2. **Rebuild database** (required):
-   ```bash
-   python src/shield_data/build_db.py
-   ```
-3. Commit both new data AND updated `shield_data.db`
-4. Submit PR (see [CONTRIBUTING.md](CONTRIBUTING.md))
+2. Commit the run folder and submit a PR (see [CONTRIBUTING.md](CONTRIBUTING.md))
+3. After merge, CI rebuilds the database and updates the `data-latest` release
 
-**Note:** PRs adding data without rebuilding the database will not be merged.
+**Note:** do not commit `shield_data.db` — CI rejects PRs containing it.
 
 ### Development
 

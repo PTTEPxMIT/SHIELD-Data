@@ -1,10 +1,12 @@
 name: Validate Data Submission
 
+# No `paths:` filter — these jobs are required status checks on main, and a
+# path-filtered workflow reports nothing on code-only PRs, which would leave
+# them blocked forever. detect-change-type is cheap and runs on every PR; the
+# heavier jobs skip themselves (skipped counts as passing) when no data changed.
+
 on:
   pull_request:
-    paths:
-      - 'run_data/**'
-      - 'src/shield_data/shield_data.db'
 
 jobs:
   detect-change-type:
@@ -40,8 +42,9 @@ jobs:
             echo "ℹ️ No changes to run data folders (only doc/catalog files or no run_data changes)"
           fi
           
-          # Check for database changes
-          if echo "$CHANGED_FILES" | grep -q '^src/shield_data/shield_data.db$'; then
+          # Check for database changes (added/modified only — deleting the
+          # DB is allowed; it must not be committed)
+          if git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD | grep -q '^src/shield_data/shield_data.db$'; then
             echo "has_db=true" >> $GITHUB_OUTPUT
             echo "✓ Detected changes to shield_data.db"
           else
@@ -162,35 +165,19 @@ jobs:
       - name: Validate new run folders
         run: python validate_structure.py
 
-  check-database-updated:
+  check-no-database-committed:
     runs-on: ubuntu-latest
     needs: detect-change-type
-    if: needs.detect-change-type.outputs.has-data-changes == 'true'
+    if: needs.detect-change-type.outputs.has-db-changes == 'true'
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Check if database was updated
+      - name: Reject committed database
         run: |
-          HAS_DATA="${{ needs.detect-change-type.outputs.has-data-changes }}"
-          HAS_DB="${{ needs.detect-change-type.outputs.has-db-changes }}"
-          
-          echo "Data changes detected: $HAS_DATA"
-          echo "Database changes detected: $HAS_DB"
-          
-          # Only check database if data was actually changed
-          if [ "$HAS_DATA" = "true" ] && [ "$HAS_DB" != "true" ]; then
-            echo "❌ ERROR: New data added but shield_data.db was not updated!"
-            echo ""
-            echo "You must rebuild the database when adding new run data:"
-            echo "  python src/shield_data/build_db.py"
-            echo ""
-            echo "Then commit both the new data AND the updated database."
-            exit 1
-          elif [ "$HAS_DATA" = "true" ] && [ "$HAS_DB" = "true" ]; then
-            echo "✅ Database was updated with the new data"
-          else
-            echo "ℹ️ No data changes detected, skipping database check"
-          fi
+          echo "❌ ERROR: src/shield_data/shield_data.db must not be committed."
+          echo ""
+          echo "The database is built automatically by CI when this PR merges"
+          echo "and published to the 'data-latest' GitHub release."
+          echo "Remove it from the PR:  git rm --cached src/shield_data/shield_data.db"
+          exit 1
 
   post-pr-summary:
     runs-on: ubuntu-latest
@@ -232,9 +219,6 @@ jobs:
               if f.startswith('run_data/') and '/' in f[9:]:
                   folder = '/'.join(f.split('/')[:2])
                   run_folders.add(folder)
-          
-          # Check if database was updated
-          db_updated = any('src/shield_data/shield_data.db' in f for f in changed_files)
           
           # Extract metadata from each run
           runs_info = []
@@ -297,22 +281,12 @@ jobs:
           summary.append("")
           
           # Database status
-          if db_updated:
-              summary.append("### ✅ Database Status")
-              summary.append("")
-              summary.append("The database file `shield_data.db` has been updated.")
-              summary.append("")
-              summary.append("Once all checks pass, this PR is ready for review!")
-          else:
-              summary.append("### ⚠️ Database Not Updated")
-              summary.append("")
-              summary.append("The database needs to be rebuilt to include this new data.")
-              summary.append("")
-              summary.append("**Please run:**")
-              summary.append("```bash")
-              summary.append("python src/shield_data/build_db.py")
-              summary.append("```")
-              summary.append("and commit the updated `shield_data.db` file.")
+          summary.append("### 🗄️ Database")
+          summary.append("")
+          summary.append("No action needed: when this PR merges, CI rebuilds the")
+          summary.append("database and publishes it to the `data-latest` release.")
+          summary.append("")
+          summary.append("Once all checks pass, this PR is ready for review!")
           
           # Write to file
           with open('pr_summary.md', 'w') as f:
@@ -363,49 +337,66 @@ jobs:
   verify-database-integrity:
     runs-on: ubuntu-latest
     needs: [detect-change-type, validate-data-structure]
-    if: needs.detect-change-type.outputs.has-db-changes == 'true'
+    if: needs.detect-change-type.outputs.has-data-changes == 'true'
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
       - name: Install package
         run: |
           pip install -e .
-      
-      - name: Create database verification script
+
+      - name: Build changed runs into a scratch database and verify
         run: |
           cat > verify_db.py << 'SCRIPT'
-          import shield_data as sd
+          import subprocess
           import sys
-          
-          try:
-              cat = sd.catalogue()
-              print(f"✓ Database contains {len(cat)} runs")
-              
-              for run_id in cat['run_id']:
-                  df = sd.load(run_id)
-                  if df.empty:
-                      print(f"❌ Run {run_id} has no measurement data")
-                      sys.exit(1)
-                  metadata = sd.load_metadata(run_id)
-                  if not metadata:
-                      print(f"❌ Run {run_id} has no metadata")
-                      sys.exit(1)
-              
-              total = sum(len(sd.load(rid)) for rid in cat['run_id'])
-              print(f"✓ All {len(cat)} runs have valid data and metadata")
-              print(f"✓ Total measurements: {total:,}")
-              
-          except Exception as e:
-              print(f"❌ Database integrity check failed: {e}")
-              import traceback
-              traceback.print_exc()
+          from pathlib import Path
+
+          from shield_data.build_db import add_run
+
+          result = subprocess.run(
+              ["git", "diff", "--name-only", "origin/${{ github.base_ref }}...HEAD"],
+              capture_output=True, text=True
+          )
+          run_folders = set()
+          for f in result.stdout.strip().split('\n'):
+              if f.startswith('run_data/') and '/' in f[9:]:
+                  run_folders.add('/'.join(f.split('/')[:2]))
+
+          scratch = Path("pr_check.db")
+          failures = []
+          for folder in sorted(run_folders):
+              if not Path(folder).exists():
+                  continue
+              try:
+                  count = add_run(folder, scratch)
+                  if count == 0:
+                      failures.append(f"{folder}: no measurement rows")
+              except Exception as e:
+                  failures.append(f"{folder}: {e}")
+
+          import os
+          os.environ["SHIELD_DATA_DB"] = str(scratch.resolve())
+          import shield_data as sd
+          cat = sd.catalogue()
+          for run_id in cat['run_id']:
+              if sd.load(run_id).empty:
+                  failures.append(f"{run_id}: loads empty from database")
+              if not sd.load_metadata(run_id):
+                  failures.append(f"{run_id}: metadata missing from database")
+
+          if failures:
+              print("❌ Database ingest check failed:")
+              for f in failures:
+                  print(f"   - {f}")
               sys.exit(1)
+          print(f"✅ All {len(cat)} changed run(s) ingest and load cleanly")
           SCRIPT
-      
-      - name: Verify database integrity
-        run: python verify_db.py
+          python verify_db.py

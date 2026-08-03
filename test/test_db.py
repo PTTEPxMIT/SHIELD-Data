@@ -17,7 +17,6 @@ import pytest
 
 from shield_data import build_db, db
 
-
 # Fixtures
 
 
@@ -491,3 +490,111 @@ def test_load_with_case_sensitive_run_id(test_db):
     result = db.load("25.10.06_RUN_1_10H41")  # Wrong case
 
     assert result.empty
+
+
+# Path resolution and cached-download tests
+
+
+def _gz(data: bytes) -> bytes:
+    import gzip
+
+    return gzip.compress(data)
+
+
+def test_get_db_path_prefers_env_var(tmp_path, monkeypatch):
+    """Test that SHIELD_DATA_DB overrides all other resolution."""
+    db_file = tmp_path / "pinned.db"
+    db_file.touch()
+    monkeypatch.setenv(db.DB_ENV_VAR, str(db_file))
+
+    assert db.get_db_path() == db_file
+
+
+def test_get_db_path_env_var_missing_file_raises(tmp_path, monkeypatch):
+    """Test that a SHIELD_DATA_DB pointing at a missing file raises."""
+    monkeypatch.setenv(db.DB_ENV_VAR, str(tmp_path / "nope.db"))
+
+    with pytest.raises(FileNotFoundError):
+        db.get_db_path()
+
+
+def test_get_db_path_uses_local_checkout_db(tmp_path, monkeypatch):
+    """Test that a database next to the source wins over the cache."""
+    monkeypatch.delenv(db.DB_ENV_VAR, raising=False)
+    local = tmp_path / "shield_data.db"
+    local.touch()
+    monkeypatch.setattr(db, "_LOCAL_DB", local)
+
+    assert db.get_db_path() == local
+
+
+def test_get_db_path_falls_back_to_cache(tmp_path, monkeypatch):
+    """Test that an existing cached download is used without network."""
+    monkeypatch.delenv(db.DB_ENV_VAR, raising=False)
+    monkeypatch.setattr(db, "_LOCAL_DB", tmp_path / "absent.db")
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "shield_data.db").touch()
+    monkeypatch.setattr(db, "_cache_dir", lambda: cache)
+
+    assert db.get_db_path() == cache / "shield_data.db"
+
+
+def test_update_database_downloads_verifies_and_caches(tmp_path, monkeypatch):
+    """Test that update_database fetches, checksum-verifies, and caches."""
+    import hashlib
+
+    raw = b"sqlite pretend bytes"
+    manifest = {"sha256": hashlib.sha256(raw).hexdigest(), "runs": 3}
+    responses = {
+        f"{db.DATA_RELEASE_URL}/manifest.json": json.dumps(manifest).encode(),
+        f"{db.DATA_RELEASE_URL}/shield_data.db.gz": _gz(raw),
+    }
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(db, "_cache_dir", lambda: cache)
+    monkeypatch.setattr(db, "_fetch", lambda url: responses[url])
+
+    result = db.update_database()
+
+    assert result == cache / "shield_data.db"
+    assert result.read_bytes() == raw
+    assert json.loads((cache / "manifest.json").read_text()) == manifest
+
+
+def test_update_database_skips_download_when_cache_current(tmp_path, monkeypatch):
+    """Test that a current cache short-circuits before downloading the db."""
+    import hashlib
+
+    raw = b"sqlite pretend bytes"
+    manifest = {"sha256": hashlib.sha256(raw).hexdigest()}
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "shield_data.db").write_bytes(raw)
+    (cache / "manifest.json").write_text(json.dumps(manifest))
+
+    def fetch(url):
+        if url.endswith("manifest.json"):
+            return json.dumps(manifest).encode()
+        raise AssertionError("database should not be re-downloaded")
+
+    monkeypatch.setattr(db, "_cache_dir", lambda: cache)
+    monkeypatch.setattr(db, "_fetch", fetch)
+
+    assert db.update_database() == cache / "shield_data.db"
+
+
+def test_update_database_checksum_mismatch_raises(tmp_path, monkeypatch):
+    """Test that a corrupted download is rejected and the cache untouched."""
+    responses = {
+        f"{db.DATA_RELEASE_URL}/manifest.json": json.dumps(
+            {"sha256": "0" * 64}
+        ).encode(),
+        f"{db.DATA_RELEASE_URL}/shield_data.db.gz": _gz(b"tampered"),
+    }
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(db, "_cache_dir", lambda: cache)
+    monkeypatch.setattr(db, "_fetch", lambda url: responses[url])
+
+    with pytest.raises(RuntimeError, match="checksum mismatch"):
+        db.update_database()
+    assert not (cache / "shield_data.db").exists()
