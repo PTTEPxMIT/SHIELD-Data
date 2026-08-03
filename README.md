@@ -95,11 +95,7 @@ df = sd.load_filtered(furnace_setpoint=500)
 # Plot pressure over time for each run
 for run_id in df["run_id"].unique():
     run_data = df[df["run_id"] == run_id]
-    plt.plot(
-        run_data.index,
-        run_data["Baratron626D_1T_voltage"],
-        label=run_id
-    )
+    plt.plot(run_data.index, run_data["Baratron626D_1T_voltage"], label=run_id)
 
 plt.xlabel("Measurement Number")
 plt.ylabel("Downstream Pressure (V)")

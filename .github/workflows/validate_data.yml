@@ -42,8 +42,9 @@ jobs:
             echo "ℹ️ No changes to run data folders (only doc/catalog files or no run_data changes)"
           fi
           
-          # Check for database changes
-          if echo "$CHANGED_FILES" | grep -q '^src/shield_data/shield_data.db$'; then
+          # Check for database changes (added/modified only — deleting the
+          # DB is allowed; it must not be committed)
+          if git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD | grep -q '^src/shield_data/shield_data.db$'; then
             echo "has_db=true" >> $GITHUB_OUTPUT
             echo "✓ Detected changes to shield_data.db"
           else
