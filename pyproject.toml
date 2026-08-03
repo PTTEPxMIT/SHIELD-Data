@@ -37,6 +37,11 @@ Issues = "https://github.com/PTTEPxMIT/SHIELD-DATA/issues"
 [tool.setuptools_scm]
 write_to = "src/shield_data/_version.py"
 
+[tool.setuptools.exclude-package-data]
+# The database is distributed via the data-latest GitHub release, not the
+# wheel (PyPI's 100 MB limit); the package downloads it on first use.
+shield_data = ["*.db"]
+
 [tool.ruff]
 line-length = 88
 indent-width = 4

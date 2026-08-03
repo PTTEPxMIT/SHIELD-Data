@@ -14,33 +14,32 @@ When adding new experimental runs to the database:
        └── run_metadata.json
    ```
 
-2. **Rebuild the database** (required before PR):
-   ```bash
-   python src/shield_data/build_db.py
-   ```
-   
-   This will:
-   - Create/update `src/shield_data/shield_data.db`
-   - Show summary of runs and measurements added
-   - Display final database size
-
-3. **Commit both** the new data AND the updated database:
+2. **Commit the run folder** (and nothing else):
    ```bash
    git add run_data/YY.MM.DD_run_X_HHhMM/
-   git add src/shield_data/shield_data.db
    git commit -m "Add run YY.MM.DD_run_X_HHhMM"
    ```
 
-4. **Create PR** with:
+3. **Create PR** with:
    - Description of the new run(s)
    - Any relevant experimental notes
-   - Verification that the database rebuilt successfully
+
+4. **After merge, the database rebuilds itself.** CI builds `shield_data.db`
+   from `run_data/` and publishes it to the rolling `data-latest` GitHub
+   release. Installed packages pick it up with
+   `python -c "import shield_data; shield_data.update_database()"`.
 
 ### ⚠️ Important
 
-**PRs that add data to `run_data/` without updating `shield_data.db` will not be merged.**
+**Do not commit `src/shield_data/shield_data.db`** — CI rejects PRs that
+include it. The database is a build artifact published to the `data-latest`
+release, not a tracked file.
 
-The database file must be rebuilt and committed with every data addition to ensure users get the latest data when installing the package.
+To test locally before opening the PR, build a scratch copy:
+```bash
+python src/shield_data/build_db.py --add run_data/YY.MM.DD_run_X_HHhMM --output /tmp/check.db
+SHIELD_DATA_DB=/tmp/check.db python -c "import shield_data; print(shield_data.catalogue())"
+```
 
 ### Automated Validation
 
@@ -48,8 +47,8 @@ When you open a PR, GitHub Actions will automatically:
 - ✅ Detect whether your PR adds new data or modifies code
 - ✅ Validate the structure of CSV and JSON files
 - ✅ Verify required fields are present in metadata
-- ✅ Check that the database was updated (if data was added)
-- ✅ Test database integrity
+- ✅ Reject the PR if `shield_data.db` was committed
+- ✅ Ingest the changed runs into a scratch database and verify they load
 
 The PR cannot be merged until all validation checks pass.
 

@@ -64,5 +64,5 @@ def test_all_contains_load_metadata():
 
 
 def test_all_has_correct_count():
-    """Test that __all__ contains exactly 4 items."""
-    assert len(shield_data.__all__) == 4
+    """Test that __all__ contains exactly 6 items."""
+    assert len(shield_data.__all__) == 6

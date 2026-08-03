@@ -1,0 +1,59 @@
+name: Data Freshness Check
+
+# Dead-man's switch for the automatic upload pipeline: fails (and emails the
+# repo watchers) if no new run has landed in run_data/ for MAX_AGE_DAYS.
+# A failure means the rig-side uploader is broken (expired token, laptop
+# rebooted without restarting the task, network change, ...) — or the rig is
+# deliberately idle, in which case disable this workflow from the Actions tab
+# until experiments resume.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Mondays 09:00 UTC
+  workflow_dispatch:
+
+env:
+  MAX_AGE_DAYS: 21
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if newest run is stale
+        run: |
+          python - << 'EOF'
+          import os
+          import re
+          import sys
+          from datetime import date, datetime
+
+          max_age = int(os.environ["MAX_AGE_DAYS"])
+          pattern = re.compile(r"^(\d{2})\.(\d{2})\.(\d{2})_")
+
+          dates = []
+          for name in os.listdir("run_data"):
+              match = pattern.match(name)
+              if match:
+                  yy, mm, dd = (int(g) for g in match.groups())
+                  dates.append(date(2000 + yy, mm, dd))
+
+          if not dates:
+              print("No run folders found in run_data/")
+              sys.exit(1)
+
+          newest = max(dates)
+          age = (datetime.utcnow().date() - newest).days
+          print(f"Newest run: {newest} ({age} days ago; limit {max_age})")
+
+          if age > max_age:
+              print(
+                  f"❌ No new run in {age} days. If the rig is running, the "
+                  "upload pipeline is broken — check the uploader task and "
+                  "token on the rig laptop. If the rig is idle on purpose, "
+                  "disable this workflow until experiments resume."
+              )
+              sys.exit(1)
+          print("✅ Data is fresh")
+          EOF
