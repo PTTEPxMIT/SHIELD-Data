@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from shield_data.build_db import build_database
+from shield_data.build_db import add_run, build_database
 
 # Fixtures
 
@@ -557,3 +557,116 @@ def test_nonexistent_data_directory_raises_error(tmp_path):
 
     with pytest.raises((FileNotFoundError, AttributeError)):
         build_database(nonexistent_dir, output)
+
+
+# add_run (incremental insert) tests
+
+
+def test_add_run_creates_database_if_missing(single_run_dir, tmp_path):
+    """Test that add_run creates the database and schema from scratch."""
+    output = tmp_path / "test.db"
+    run_dir = single_run_dir / "25.10.06_run_1_10h41"
+
+    add_run(run_dir, output)
+
+    conn = sqlite3.connect(output)
+    run_count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+    meas_count = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+    conn.close()
+    assert run_count == 1
+    assert meas_count == 2
+
+
+def test_add_run_appends_without_touching_other_runs(
+    temp_data_dir, sample_metadata, sample_csv_data, tmp_path
+):
+    """Test that add_run leaves existing runs in the database untouched."""
+    output = tmp_path / "test.db"
+
+    run_names = ["25.10.06_run_1_10h41", "25.10.07_run_1_09h00"]
+    for name in run_names:
+        run_dir = temp_data_dir / name
+        run_dir.mkdir()
+        with open(run_dir / "run_metadata.json", "w") as f:
+            json.dump(sample_metadata, f)
+        sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+
+    add_run(temp_data_dir / run_names[0], output)
+    add_run(temp_data_dir / run_names[1], output)
+
+    conn = sqlite3.connect(output)
+    run_ids = [r[0] for r in conn.execute("SELECT run_id FROM runs ORDER BY run_id")]
+    meas_count = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+    conn.close()
+    assert run_ids == run_names
+    assert meas_count == 4
+
+
+def test_add_run_is_idempotent(single_run_dir, tmp_path):
+    """Test that re-adding the same run replaces it rather than duplicating."""
+    output = tmp_path / "test.db"
+    run_dir = single_run_dir / "25.10.06_run_1_10h41"
+
+    add_run(run_dir, output)
+    add_run(run_dir, output)
+
+    conn = sqlite3.connect(output)
+    run_count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+    meas_count = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+    conn.close()
+    assert run_count == 1
+    assert meas_count == 2
+
+
+def test_add_run_replaces_with_updated_data(single_run_dir, tmp_path, sample_csv_data):
+    """Test that re-adding a run with more rows supersedes the old rows."""
+    output = tmp_path / "test.db"
+    run_dir = single_run_dir / "25.10.06_run_1_10h41"
+
+    add_run(run_dir, output)
+
+    longer = pd.concat([sample_csv_data, sample_csv_data], ignore_index=True)
+    longer.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+    add_run(run_dir, output)
+
+    conn = sqlite3.connect(output)
+    meas_count = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+    conn.close()
+    assert meas_count == 4
+
+
+def test_add_run_returns_measurement_count(single_run_dir, tmp_path):
+    """Test that add_run returns the number of measurement rows inserted."""
+    output = tmp_path / "test.db"
+    run_dir = single_run_dir / "25.10.06_run_1_10h41"
+
+    assert add_run(run_dir, output) == 2
+
+
+def test_add_run_missing_columns_stored_as_null(
+    temp_data_dir, sample_metadata, tmp_path
+):
+    """Test that runs missing a gauge column store NULL for that column."""
+    output = tmp_path / "test.db"
+    run_dir = temp_data_dir / "25.10.06_run_1_10h41"
+    run_dir.mkdir()
+    with open(run_dir / "run_metadata.json", "w") as f:
+        json.dump(sample_metadata, f)
+    pd.DataFrame(
+        {
+            "RealTimestamp": ["2025-10-06 10:41:00"],
+            "WGM701_Voltage (V)": [1.23],
+        }
+    ).to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+
+    add_run(run_dir, output)
+
+    conn = sqlite3.connect(output)
+    row = conn.execute(
+        "SELECT WGM701_voltage, CVM211_voltage, Baratron626D_1T_voltage "
+        "FROM measurements"
+    ).fetchone()
+    conn.close()
+    assert row[0] == 1.23
+    assert row[1] is None
+    assert row[2] is None
