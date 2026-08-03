@@ -1,10 +1,12 @@
 name: Validate Data Submission
 
+# No `paths:` filter — these jobs are required status checks on main, and a
+# path-filtered workflow reports nothing on code-only PRs, which would leave
+# them blocked forever. detect-change-type is cheap and runs on every PR; the
+# heavier jobs skip themselves (skipped counts as passing) when no data changed.
+
 on:
   pull_request:
-    paths:
-      - 'run_data/**'
-      - 'src/shield_data/shield_data.db'
 
 jobs:
   detect-change-type:
