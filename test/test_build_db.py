@@ -670,3 +670,26 @@ def test_add_run_missing_columns_stored_as_null(
     assert row[0] == 1.23
     assert row[1] is None
     assert row[2] is None
+
+
+def test_add_run_reads_sample_material_from_v13_metadata(
+    temp_data_dir, sample_metadata, sample_csv_data, tmp_path
+):
+    """Test that v1.3 metadata's sample_material fills the material column."""
+    output = tmp_path / "test.db"
+    run_dir = temp_data_dir / "26.01.14_run_1_09h00"
+    run_dir.mkdir()
+    metadata = dict(sample_metadata)
+    metadata["run_info"] = dict(sample_metadata["run_info"])
+    del metadata["run_info"]["material"]
+    metadata["run_info"]["sample_material"] = "316"
+    with open(run_dir / "run_metadata.json", "w") as f:
+        json.dump(metadata, f)
+    sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+
+    add_run(run_dir, output)
+
+    conn = sqlite3.connect(output)
+    material = conn.execute("SELECT material FROM runs").fetchone()[0]
+    conn.close()
+    assert material == "316"

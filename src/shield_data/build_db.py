@@ -94,7 +94,8 @@ def _insert_run(cursor: sqlite3.Cursor, run_folder: Path) -> int:
             run_info.get("start_time"),
             run_info.get("run_type"),
             run_info.get("furnace_setpoint"),
-            run_info.get("material"),
+            # v1.0 metadata calls this "material", v1.3 "sample_material"
+            run_info.get("material", run_info.get("sample_material")),
             run_info.get("coating"),
             json.dumps(metadata),
         ),
