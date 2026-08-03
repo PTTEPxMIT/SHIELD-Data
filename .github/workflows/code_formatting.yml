@@ -13,7 +13,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install linting tools
-        run: pip install mypy ruff
+        # ruff pinned: an unpinned latest changed behaviour mid-project
+        # (0.16 format-checks Python blocks inside markdown) and broke CI
+        # for every open branch at once. Bump deliberately.
+        run: pip install mypy ruff==0.16.1
 
       - name: ruff format
         run: |
