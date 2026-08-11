@@ -162,9 +162,33 @@ environment variable.
 
 ### Adding New Data
 
-When adding new experimental runs:
+#### Uploading from the rig (normal path)
 
-1. Add run folder to `run_data/YY.MM.DD_run_X_HHhMM/`
+Runs recorded by [SHIELD_DAS](https://github.com/PTTEPxMIT/SHIELD_DAS) are
+uploaded from the rig computer by hand after each run:
+
+1. When the run has finished, double-click **`upload_runs.bat`** in the
+   SHIELD_DAS folder on the rig PC (or run `shield-das-upload` in a
+   terminal).
+2. The uploader finds every completed run not yet uploaded, renames
+   `shield_data.csv` to `pressure_gauge_data.csv`, drops the `backup/`
+   directory, and opens one pull request per run against this repository
+   (branch `auto/run-<run_id>`, folder `run_data/YY.MM.DD_run_X_HHhMM/`).
+   Already-uploaded runs are skipped, so running it any time is safe.
+3. Review and merge the PR once CI validation passes.
+4. After merge, CI rebuilds the database and updates the
+   [`data-latest` release](https://github.com/PTTEPxMIT/SHIELD-Data/releases/tag/data-latest);
+   `shield_data.update_database()` then picks it up.
+
+One-time setup (GitHub token + config) is documented in
+[SHIELD_DAS docs/auto_upload.md](https://github.com/PTTEPxMIT/SHIELD_DAS/blob/main/docs/auto_upload.md).
+
+#### Adding a run manually
+
+For runs coming from anywhere else:
+
+1. Copy the run folder to `run_data/YY.MM.DD_run_X_HHhMM/` containing
+   `pressure_gauge_data.csv` and `run_metadata.json` (no `backup/` directory)
 2. Commit the run folder and submit a PR (see [CONTRIBUTING.md](CONTRIBUTING.md))
 3. After merge, CI rebuilds the database and updates the `data-latest` release
 
