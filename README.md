@@ -170,11 +170,12 @@ uploaded from the rig computer by hand after each run:
 1. When the run has finished, double-click **`upload_runs.bat`** in the
    SHIELD_DAS folder on the rig PC (or run `shield-das-upload` in a
    terminal).
-2. The uploader finds every completed run not yet uploaded, renames
-   `shield_data.csv` to `pressure_gauge_data.csv`, drops the `backup/`
-   directory, and opens one pull request per run against this repository
-   (branch `auto/run-<run_id>`, folder `run_data/YY.MM.DD_run_X_HHhMM/`).
-   Already-uploaded runs are skipped, so running it any time is safe.
+2. The uploader finds every completed run not yet uploaded, converts
+   `shield_data.csv` to a zstd-compressed `measurements.parquet` (verified
+   as an exact round-trip), drops the `backup/` directory, and opens one
+   pull request per run against this repository (branch `auto/run-<run_id>`,
+   folder `run_data/YY.MM.DD_run_X_HHhMM/`). Already-uploaded runs are
+   skipped, so running it any time is safe.
 3. Review and merge the PR once CI validation passes.
 4. After merge, CI rebuilds the database and updates the
    [`data-latest` release](https://github.com/PTTEPxMIT/SHIELD-Data/releases/tag/data-latest);
@@ -188,7 +189,9 @@ One-time setup (GitHub token + config) is documented in
 For runs coming from anywhere else:
 
 1. Copy the run folder to `run_data/YY.MM.DD_run_X_HHhMM/` containing
-   `pressure_gauge_data.csv` and `run_metadata.json` (no `backup/` directory)
+   `measurements.parquet` and `run_metadata.json` (no `backup/` directory) —
+   convert a CSV with
+   `python -m shield_data.store convert <run_folder> --delete-csv`
 2. Commit the run folder and submit a PR (see [CONTRIBUTING.md](CONTRIBUTING.md))
 3. After merge, CI rebuilds the database and updates the `data-latest` release
 
