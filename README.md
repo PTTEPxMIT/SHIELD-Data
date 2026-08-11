@@ -12,7 +12,7 @@ SHIELD-Data stores each experimental run as a compressed Parquet file and serves
 
 - **4.2M+ measurements** from 105+ experimental runs
 - **Per-run Parquet storage**: every channel the rig recorded (gauge voltages, temperatures, future instruments), ~10x smaller than CSV, no schema migrations when instrumentation changes
-- **A small catalogue** (~1 MB) for browsing and filtering runs by material, coating, furnace setpoint, recorded channels, ...
+- **A small catalogue** (~1 MB) for browsing and filtering runs by substrate, coating, furnace setpoint, recorded channels, ...
 - **Simple API**: filter the catalogue, then `load()` fetches, verifies, and caches just those runs
 
 ## Installation
@@ -50,7 +50,7 @@ Load the catalogue of all experimental runs.
 cat = sd.catalogue()
 # Returns DataFrame with columns:
 #   run_id, date, start_time, end_time, run_type, furnace_setpoint,
-#   material, coating, channels, n_measurements, data_file, size_bytes,
+#   substrate, coating, channels, n_measurements, data_file, size_bytes,
 #   sha256, metadata
 ```
 
@@ -137,9 +137,71 @@ available through the Parquet path.
 
 Each run includes detailed metadata:
 - Run information (type, date, furnace setpoint)
+- Sample description (substrate, coating layers, thickness)
 - Gauge configurations (4 pressure gauges)
 - Valve timing information
 - Recording parameters
+
+#### Sample description fields
+
+Every run's `run_metadata.json` carries three sample description fields in
+`run_info` (recorded by SHIELD_DAS since metadata version 1.4, and
+backfilled into all earlier runs — see below):
+
+- `sample_substrate` — substrate material, spelled out in full, e.g.
+  `"carbon steel"`, `"316L steel"`.
+- `sample_coating_layers` — the coating as a list of layers, ordered as
+  named on the sample, each `{"material": ..., "thickness_nm": ...}` with
+  materials spelled out in full (`"tungsten"`, `"silicon carbide"`,
+  `"chromium"`, `"alumina"`). An uncoated sample has an empty list.
+- `sample_coating` — human-readable summary derived from the layers, e.g.
+  `"800nm tungsten"`, `"200nm tungsten + 50nm chromium"`; `"none"` for an
+  uncoated sample.
+
+The catalogue exposes `sample_substrate` and `sample_coating` as its
+`substrate` and `coating` columns. Metadata versions ≤ 1.3 recorded a single
+`material`/`sample_material` field instead, which readers treat as the
+substrate.
+
+#### Backfilled sample assignments (2026-08-11)
+
+Runs recorded before metadata v1.4 either had no sample field or carried a
+stale default (`sample_material: "316"` regardless of the mounted sample).
+The sample description fields were backfilled for all 105 stored runs. The
+assignments were inferred from the run groupings in the SHIELD analysis
+notebook (`ShieldRunsAnalysis/SHIELD_analysis.ipynb`), cross-checked against
+the `sample_thickness` eras in the recorded metadata, with two rulings
+confirmed by the rig operator:
+
+- The 26.03.19–26.03.27 tungsten-coated runs are **800nm** tungsten (the
+  notebook block header; the `100nm_W_...` results CSV name is stale).
+- Run 26.02.20 is 800nm tungsten coated (it is the sole run in the
+  `800nm_W_coated_carbon_steel` results CSV, despite falling inside the
+  uncoated carbon steel date range).
+
+| Runs (inclusive date ranges) | Substrate | Coating |
+| --- | --- | --- |
+| 25.08.25 – 25.10.13, 25.11.05 – 25.11.18 (original sample), 25.11.19 – 25.12.10 (fresh sample) | 316L steel | none |
+| 25.10.21 – 25.10.30 (original sample), 26.01.14 – 26.02.18 (fresh sample) | carbon steel | none |
+| 26.02.20, 26.03.19 – 26.03.27 | carbon steel | 800nm tungsten |
+| 26.04.01 – 26.04.09 | UKEA reference 316 steel | none |
+| 26.04.11 – 26.04.15 | UKEA interface 316 steel | none |
+| 26.04.17 – 26.04.23 | carbon steel | 100nm silicon carbide |
+| 26.05.05 – 26.05.17 | carbon steel | 50nm tungsten |
+| 26.05.20 | carbon steel | 200nm tungsten + 50nm chromium |
+| 26.05.22 – 26.06.16 | carbon steel | 150nm alumina |
+
+Supporting evidence: the `sample_thickness` recorded in v1.3 metadata is
+constant within each sample era (0.008 m for the fresh 316L sample,
+0.00065 m for the fresh carbon steel substrate also used for the 800nm
+tungsten coating, 0.0005 m for both UKEA 316 samples, and 0.00136 m for the
+carbon steel substrate used for the silicon carbide, 50nm tungsten,
+tungsten+chromium, and alumina coatings).
+
+During the backfill, v1.3 files were bumped to v1.4 (same layout plus the
+sample fields, stale `sample_material` removed); v1.0/1.1 files keep their
+version — their file layout predates v1.3 — but carry the same three
+backfilled fields.
 
 ## Repository Structure
 

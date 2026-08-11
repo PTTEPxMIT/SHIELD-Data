@@ -1,5 +1,5 @@
 {
-  "version": "1.3",
+  "version": "1.4",
   "run_info": {
     "date": "2026-04-08",
     "start_time": "2026-04-08 13:59:46",
@@ -7,7 +7,9 @@
     "furnace_setpoint": 500,
     "recording_interval_seconds": 1,
     "backup_interval_seconds": 1000,
-    "sample_material": "316",
+    "sample_substrate": "UKEA reference 316 steel",
+    "sample_coating": "none",
+    "sample_coating_layers": [],
     "sample_thickness": 0.0005,
     "data_filename": "shield_data.csv",
     "v4_close_time": "2026-04-08 13:59:47.439",

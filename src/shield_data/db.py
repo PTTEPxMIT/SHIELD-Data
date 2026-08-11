@@ -274,10 +274,13 @@ def catalogue() -> pd.DataFrame:
     """Load the catalogue of all experimental runs.
 
     In store mode the catalogue has one row per run with normalised metadata
-    fields (date, start_time, end_time, run_type, furnace_setpoint, material,
-    coating), the list of recorded ``channels``, ``n_measurements``, and the
-    data file's checksum. With a pinned database (legacy mode) it is the old
-    SQLite ``runs`` table.
+    fields (date, start_time, end_time, run_type, furnace_setpoint,
+    substrate, coating), the list of recorded ``channels``,
+    ``n_measurements``, and the data file's checksum. The coating is a
+    human-readable summary (e.g. "800nm tungsten", "none" for uncoated); the
+    per-layer breakdown lives in the run metadata's
+    ``sample_coating_layers``. With a pinned database (legacy mode) it is
+    the old SQLite ``runs`` table, which keeps its ``material`` column.
 
     Returns:
         DataFrame with one row per run
@@ -349,7 +352,7 @@ def load_filtered(**filters) -> pd.DataFrame:
     """Load data for runs matching filter criteria.
 
     Filters apply to catalogue columns, so any normalised metadata field
-    works (material, coating, furnace_setpoint, run_type, date, ...). In
+    works (substrate, coating, furnace_setpoint, run_type, date, ...). In
     store mode only the matching runs are downloaded; columns are aligned
     across runs, with NaN where a run did not record a channel.
 
