@@ -68,8 +68,8 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install pandas
-      
+          pip install pandas pyarrow
+
       - name: Create validation script
         run: |
           cat > validate_structure.py << 'SCRIPT'
@@ -77,29 +77,39 @@ jobs:
           import json
           import pandas as pd
           from pathlib import Path
-          
+
           def validate_run(folder):
               errors = []
               folder_path = Path(folder)
-              
+
               print(f"\nChecking: {folder}")
-              
-              # Check CSV
+
+              # Check measurements: measurements.parquet is the current format;
+              # pressure_gauge_data.csv is the legacy one (still accepted).
+              parquet_path = folder_path / "measurements.parquet"
               csv_path = folder_path / "pressure_gauge_data.csv"
-              if not csv_path.exists():
-                  errors.append(f"Missing: {csv_path}")
+              if parquet_path.exists() and csv_path.exists():
+                  errors.append("Both measurements.parquet and pressure_gauge_data.csv present — keep one")
+              elif not parquet_path.exists() and not csv_path.exists():
+                  errors.append("Missing measurements.parquet (or legacy pressure_gauge_data.csv)")
               else:
+                  data_path = parquet_path if parquet_path.exists() else csv_path
                   try:
-                      df = pd.read_csv(csv_path)
-                      required_cols = ["RealTimestamp", "WGM701_Voltage (V)", "CVM211_Voltage (V)", 
-                                     "Baratron626D_1KT_Voltage (V)", "Baratron626D_1T_Voltage (V)"]
-                      missing = [col for col in required_cols if col not in df.columns]
-                      if missing:
-                          errors.append(f"CSV missing columns: {missing}")
+                      if data_path.suffix == ".parquet":
+                          df = pd.read_parquet(data_path)
                       else:
-                          print(f"  ✓ CSV valid ({len(df)} rows)")
+                          df = pd.read_csv(data_path)
+                      if "RealTimestamp" not in df.columns:
+                          errors.append("Data file missing RealTimestamp column")
+                      channels = [c for c in df.columns if c != "RealTimestamp"]
+                      if not channels:
+                          errors.append("Data file has no data channels")
+                      if len(df) == 0:
+                          errors.append("Data file has no rows")
+                      if not errors:
+                          print(f"  ✓ {data_path.name} valid ({len(df)} rows, channels: {channels})")
                   except Exception as e:
-                      errors.append(f"CSV error: {e}")
+                      errors.append(f"Data file error: {e}")
               
               # Check JSON
               json_path = folder_path / "run_metadata.json"
@@ -196,8 +206,8 @@ jobs:
           python-version: '3.11'
       
       - name: Install dependencies
-        run: pip install pandas
-      
+        run: pip install pandas pyarrow
+
       - name: Generate PR summary
         id: summary
         run: |
@@ -228,24 +238,26 @@ jobs:
                   continue
                   
               json_path = folder_path / "run_metadata.json"
+              parquet_path = folder_path / "measurements.parquet"
               csv_path = folder_path / "pressure_gauge_data.csv"
-              
+
               run_id = folder_path.name
-              
+
               if json_path.exists():
                   with open(json_path) as f:
                       metadata = json.load(f)
                   run_info = metadata.get("run_info", {})
               else:
                   run_info = {}
-              
+
               measurement_count = 0
-              if csv_path.exists():
-                  try:
-                      df = pd.read_csv(csv_path)
-                      measurement_count = len(df)
-                  except:
-                      pass
+              try:
+                  if parquet_path.exists():
+                      measurement_count = len(pd.read_parquet(parquet_path))
+                  elif csv_path.exists():
+                      measurement_count = len(pd.read_csv(csv_path))
+              except:
+                  pass
               
               runs_info.append({
                   "run_id": run_id,

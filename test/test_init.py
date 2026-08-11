@@ -63,6 +63,12 @@ def test_all_contains_load_metadata():
     assert "load_metadata" in shield_data.__all__
 
 
+def test_update_catalogue_is_exported():
+    """Test that update_catalogue function is exported."""
+    assert hasattr(shield_data, "update_catalogue")
+    assert "update_catalogue" in shield_data.__all__
+
+
 def test_all_has_correct_count():
-    """Test that __all__ contains exactly 6 items."""
-    assert len(shield_data.__all__) == 6
+    """Test that __all__ contains exactly 7 items."""
+    assert len(shield_data.__all__) == 7

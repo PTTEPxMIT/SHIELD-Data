@@ -8,12 +8,12 @@ A Python package providing experimental permeation data from the SHIELD hydrogen
 
 ## Overview
 
-SHIELD-Data bundles experimental data in an SQLite database for easy access and analysis. The package includes:
+SHIELD-Data stores each experimental run as a compressed Parquet file and serves runs individually — you download only the runs you ask for, not the whole dataset. The package includes:
 
-- **826,000+ measurements** from 8 experimental runs
-- **SQLite database** for efficient querying and filtering
-- **Simple API** for loading data and metadata
-- **Bundled with pip install** - no external data downloads needed
+- **4.2M+ measurements** from 105+ experimental runs
+- **Per-run Parquet storage**: every channel the rig recorded (gauge voltages, temperatures, future instruments), ~10x smaller than CSV, no schema migrations when instrumentation changes
+- **A small catalogue** (~1 MB) for browsing and filtering runs by material, coating, furnace setpoint, recorded channels, ...
+- **Simple API**: filter the catalogue, then `load()` fetches, verifies, and caches just those runs
 
 ## Installation
 
@@ -49,17 +49,22 @@ Load the catalogue of all experimental runs.
 ```python
 cat = sd.catalogue()
 # Returns DataFrame with columns:
-#   run_id, date, start_time, run_type, furnace_setpoint, material, coating
+#   run_id, date, start_time, end_time, run_type, furnace_setpoint,
+#   material, coating, channels, n_measurements, data_file, size_bytes,
+#   sha256, metadata
 ```
 
 ### `load(run_id)`
-Load pressure gauge data for a specific run.
+Load the measurements of a specific run. Only that run's file is downloaded
+(verified against the catalogue checksum and cached locally).
 
 ```python
 df = sd.load("25.10.06_run_1_10h41")
-# Returns DataFrame with columns:
-#   timestamp, WGM701_voltage, CVM211_voltage,
-#   Baratron626D_1KT_voltage, Baratron626D_1T_voltage, run_id
+# Returns the channels exactly as the rig recorded them, e.g.:
+#   RealTimestamp (datetime64), WGM701_Voltage (V), CVM211_Voltage (V),
+#   Baratron626D_1KT_Voltage (V), Baratron626D_1T_Voltage (V),
+#   Local_temperature (C), furnace_thermocouple_Voltage (mV), run_id
+# Older runs recorded fewer channels — check catalogue()["channels"].
 ```
 
 ### `load_metadata(run_id)`
@@ -106,28 +111,27 @@ plt.show()
 
 ## Data Structure
 
-### Database Schema
+### Storage Format
 
-The SQLite database contains two tables:
+Each run folder holds two files:
 
-**runs table:**
-- `run_id` (TEXT, PRIMARY KEY)
-- `date` (TEXT)
-- `start_time` (TEXT)
-- `run_type` (TEXT)
-- `furnace_setpoint` (INTEGER)
-- `material` (TEXT, nullable)
-- `coating` (TEXT, nullable)
-- `metadata` (TEXT, JSON)
+- `measurements.parquet` — every channel the rig recorded, zstd-compressed.
+  Parquet files are self-describing: column names and types are embedded, so
+  runs with different instrumentation coexist without any schema migration.
+- `run_metadata.json` — run info, gauge and thermocouple configuration.
 
-**measurements table:**
-- `id` (INTEGER, PRIMARY KEY)
-- `run_id` (TEXT, FOREIGN KEY)
-- `timestamp` (TEXT)
-- `WGM701_voltage` (REAL)
-- `CVM211_voltage` (REAL)
-- `Baratron626D_1KT_voltage` (REAL)
-- `Baratron626D_1T_voltage` (REAL)
+The catalogue (built by CI, attached to the
+[`data-latest` release](https://github.com/PTTEPxMIT/SHIELD-Data/releases/tag/data-latest))
+has one row per run: normalised metadata fields, the list of recorded
+`channels`, measurement counts, and each data file's sha256 (used to verify
+per-run downloads). Refresh it with `shield_data.update_catalogue()`.
+
+**Legacy SQLite database** (deprecated): the monolithic `shield_data.db` is
+still built and released while downstream consumers migrate. Pinning it via
+the `SHIELD_DATA_DB` environment variable preserves the old behaviour,
+including the old `timestamp` / `*_voltage` column names. Note it carries
+only the four original gauge-voltage columns — temperature channels are only
+available through the Parquet path.
 
 ### Run Metadata
 
@@ -143,20 +147,19 @@ Each run includes detailed metadata:
 SHIELD-Data/
 ├── run_data/                     # Raw data (not in package)
 │   ├── YY.MM.DD_run_X_HHhMM/    # Individual run folders
-│   │   ├── pressure_gauge_data.csv
+│   │   ├── measurements.parquet
 │   │   └── run_metadata.json
 │   └── ...
 ├── src/shield_data/
 │   ├── db.py                     # Main API
-│   └── build_db.py               # Database builder
+│   ├── store.py                  # Parquet storage layer + catalogue builder
+│   └── build_db.py               # Legacy database builder (deprecated)
 └── test/                         # Unit tests
 ```
 
-The SQLite database itself is not stored in git: CI builds it from `run_data/`
-and publishes it to the [`data-latest` release](https://github.com/PTTEPxMIT/SHIELD-Data/releases/tag/data-latest).
-The package downloads and caches it on first use; refresh with
-`shield_data.update_database()`, or pin a local file via the `SHIELD_DATA_DB`
-environment variable.
+In a repo checkout, the API reads `run_data/` directly. Installed packages
+fetch the catalogue from the `data-latest` release and individual runs from
+the repository's raw URLs, caching everything per-user.
 
 ## Contributing
 
@@ -172,18 +175,17 @@ When adding new experimental runs:
 
 ### Development
 
-To rebuild the database from raw data:
+To convert a legacy CSV run and rebuild the catalogue locally:
 
-```python
-from shield_data.build_db import build_database
-
-build_database("run_data")  # Creates src/shield_data/shield_data.db
+```bash
+python -m shield_data.store convert run_data/YY.MM.DD_run_X_HHhMM --delete-csv
+python -m shield_data.store catalogue run_data --output catalogue.parquet
 ```
 
 ## Requirements
 
 - Python >= 3.9
-- pandas
+- pandas, pyarrow
 
 ## License
 
