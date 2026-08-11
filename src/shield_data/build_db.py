@@ -1,4 +1,11 @@
-"""Build SQLite database from run_data folder."""
+"""Build the legacy SQLite database from the run_data folder.
+
+Deprecated: runs are now stored and served as per-run Parquet files (see
+shield_data.store). This builder is kept while downstream consumers migrate
+off the monolithic database; it reads either storage format. Note the
+measurements table keeps only the four original gauge-voltage columns —
+additional channels (e.g. temperatures) are available via the Parquet path.
+"""
 
 import argparse
 import json
@@ -6,6 +13,8 @@ import sqlite3
 from pathlib import Path
 
 import pandas as pd
+
+from shield_data import store
 
 # CSV columns (with units, as written by SHIELD_DAS) in measurement-table order.
 _MEASUREMENT_CSV_COLUMNS = [
@@ -72,7 +81,6 @@ def _insert_run(cursor: sqlite3.Cursor, run_folder: Path) -> int:
     """
     run_id = run_folder.name
     metadata_file = run_folder / "run_metadata.json"
-    data_file = run_folder / "pressure_gauge_data.csv"
 
     with open(metadata_file) as f:
         metadata = json.load(f)
@@ -101,7 +109,16 @@ def _insert_run(cursor: sqlite3.Cursor, run_folder: Path) -> int:
         ),
     )
 
-    df = pd.read_csv(data_file)
+    csv_file = run_folder / store.LEGACY_CSV_FILENAME
+    if csv_file.exists():
+        df = pd.read_csv(csv_file)
+    else:
+        df = store.read_measurements(run_folder)
+        # The measurements table stores timestamps as text in the format the
+        # rig originally wrote (millisecond precision).
+        df[store.TIMESTAMP_COLUMN] = (
+            df[store.TIMESTAMP_COLUMN].dt.strftime("%Y-%m-%d %H:%M:%S.%f").str[:-3]
+        )
     columns = [
         df[name].where(pd.notna(df[name]), None)
         if name in df.columns

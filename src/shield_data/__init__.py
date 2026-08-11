@@ -11,6 +11,7 @@ from shield_data.db import (
     load,
     load_filtered,
     load_metadata,
+    update_catalogue,
     update_database,
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     "load",
     "load_filtered",
     "load_metadata",
+    "update_catalogue",
     "update_database",
 ]

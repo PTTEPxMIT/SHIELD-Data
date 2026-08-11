@@ -1,9 +1,10 @@
 name: Build Database Release
 
-# Rebuilds shield_data.db from run_data/ whenever data lands on main, and
-# attaches it (gzipped, with a checksum manifest) to the rolling `data-latest`
-# GitHub release. The shield_data package downloads and caches that release on
-# first use — the database is never committed to git.
+# Rebuilds the run catalogue (and, during the deprecation window, the legacy
+# shield_data.db) from run_data/ whenever data lands on main, and attaches
+# them with a checksum manifest to the rolling `data-latest` GitHub release.
+# The shield_data package downloads and caches the catalogue on first use;
+# individual runs are fetched per-file from the repository's raw URLs.
 
 on:
   push:
@@ -11,6 +12,7 @@ on:
     paths:
       - 'run_data/**'
       - 'src/shield_data/build_db.py'
+      - 'src/shield_data/store.py'
   workflow_dispatch:
 
 permissions:
@@ -31,10 +33,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install pandas
+      - name: Install package
+        run: pip install -e .
 
-      - name: Build database
+      - name: Build catalogue
+        run: python -m shield_data.store catalogue run_data --output catalogue.parquet
+
+      - name: Build legacy database
         run: python src/shield_data/build_db.py --data-dir run_data --output shield_data.db
 
       - name: Compress and generate manifest
@@ -52,6 +57,9 @@ jobs:
           with gzip.open("shield_data.db.gz", "wb", compresslevel=9) as f:
               f.write(raw)
 
+          cat_raw = open("catalogue.parquet", "rb").read()
+          cat_sha = hashlib.sha256(cat_raw).hexdigest()
+
           conn = sqlite3.connect("shield_data.db")
           runs = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
           measurements = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
@@ -59,6 +67,8 @@ jobs:
 
           manifest = {
               "sha256": sha,
+              "catalogue_sha256": cat_sha,
+              "catalogue_size_bytes": len(cat_raw),
               "runs": runs,
               "measurements": measurements,
               "size_bytes": len(raw),
@@ -78,7 +88,7 @@ jobs:
             gh release create data-latest \
               --repo "$GITHUB_REPOSITORY" \
               --title "SHIELD data (latest)" \
-              --notes "Rolling release: the latest shield_data.db built from run_data on main. Updated automatically by CI — do not edit by hand." \
+              --notes "Rolling release: the run catalogue (and legacy shield_data.db) built from run_data on main. Updated automatically by CI — do not edit by hand." \
               --latest=false
-          gh release upload data-latest shield_data.db.gz manifest.json \
+          gh release upload data-latest catalogue.parquet shield_data.db.gz manifest.json \
             --repo "$GITHUB_REPOSITORY" --clobber
