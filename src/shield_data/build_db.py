@@ -102,9 +102,14 @@ def _insert_run(cursor: sqlite3.Cursor, run_folder: Path) -> int:
             run_info.get("start_time"),
             run_info.get("run_type"),
             run_info.get("furnace_setpoint"),
-            # v1.0 metadata calls this "material", v1.3 "sample_material"
-            run_info.get("material", run_info.get("sample_material")),
-            run_info.get("coating"),
+            # The legacy schema keeps its material/coating columns; fill them
+            # from the v1.4 sample fields, falling back to the names older
+            # metadata used ("material" in v1.0, "sample_material" in v1.3).
+            run_info.get(
+                "sample_substrate",
+                run_info.get("material", run_info.get("sample_material")),
+            ),
+            run_info.get("sample_coating", run_info.get("coating")),
             json.dumps(metadata),
         ),
     )

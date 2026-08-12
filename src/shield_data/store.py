@@ -174,9 +174,17 @@ def _normalised_run_fields(metadata: dict) -> dict:
         "end_time": run_info.get("end_time"),
         "run_type": run_info.get("run_type"),
         "furnace_setpoint": run_info.get("furnace_setpoint"),
-        # v1.0 metadata calls this "material", v1.3 "sample_material"
-        "material": run_info.get("material", run_info.get("sample_material")),
-        "coating": run_info.get("coating"),
+        # v1.4 metadata records "sample_substrate"; older files had
+        # "material" (v1.0) or "sample_material" (v1.3), which name the
+        # substrate with no coating information.
+        "substrate": run_info.get(
+            "sample_substrate",
+            run_info.get("material", run_info.get("sample_material")),
+        ),
+        # v1.4 "sample_coating" is a human-readable summary, "none" for an
+        # uncoated sample; the per-layer breakdown is in the metadata's
+        # "sample_coating_layers".
+        "coating": run_info.get("sample_coating", run_info.get("coating")),
     }
 
 
@@ -185,8 +193,9 @@ def build_catalogue(
 ) -> pd.DataFrame:
     """Build the run catalogue from a run_data directory.
 
-    One row per run folder: run_id, normalised metadata fields (material
-    falls back to v1.3's sample_material), the list of recorded channels,
+    One row per run folder: run_id, normalised metadata fields (substrate
+    falls back to the legacy material/sample_material), the list of recorded
+    channels,
     measurement count, and the data file's name, size, and sha256 (used to
     verify per-run downloads). The full run_metadata.json is carried in the
     ``metadata`` column so ``load_metadata`` needs no further download.

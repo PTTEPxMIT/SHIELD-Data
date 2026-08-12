@@ -693,3 +693,33 @@ def test_add_run_reads_sample_material_from_v13_metadata(
     material = conn.execute("SELECT material FROM runs").fetchone()[0]
     conn.close()
     assert material == "316"
+
+
+def test_add_run_reads_sample_substrate_from_v14_metadata(
+    temp_data_dir, sample_metadata, sample_csv_data, tmp_path
+):
+    """Test that v1.4 sample fields fill the legacy material/coating columns."""
+    output = tmp_path / "test.db"
+    run_dir = temp_data_dir / "26.03.19_run_1_14h40"
+    run_dir.mkdir()
+    metadata = dict(sample_metadata)
+    metadata["version"] = "1.4"
+    metadata["run_info"] = dict(sample_metadata["run_info"])
+    del metadata["run_info"]["material"]
+    del metadata["run_info"]["coating"]
+    metadata["run_info"]["sample_substrate"] = "carbon steel"
+    metadata["run_info"]["sample_coating"] = "800nm tungsten"
+    metadata["run_info"]["sample_coating_layers"] = [
+        {"material": "tungsten", "thickness_nm": 800}
+    ]
+    with open(run_dir / "run_metadata.json", "w") as f:
+        json.dump(metadata, f)
+    sample_csv_data.to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+
+    add_run(run_dir, output)
+
+    conn = sqlite3.connect(output)
+    material, coating = conn.execute("SELECT material, coating FROM runs").fetchone()
+    conn.close()
+    assert material == "carbon steel"
+    assert coating == "800nm tungsten"

@@ -171,14 +171,15 @@ def test_build_catalogue_fields(data_dir):
 
     assert list(cat["run_id"]) == ["25.10.06_run_1_10h41", "25.10.07_run_1_08h16"]
     run1 = cat.iloc[0]
-    assert run1["material"] == "steel"
+    assert run1["substrate"] == "steel"
+    assert run1["coating"] == "TiN"
     assert run1["furnace_setpoint"] == 500
     assert run1["data_file"] == store.LEGACY_CSV_FILENAME
     assert set(run1["channels"]) == set(GAUGE_COLUMNS)
 
-    # v1.3 metadata: material falls back to sample_material; extra channels listed
+    # v1.3 metadata: substrate falls back to sample_material; extra channels listed
     run2 = cat.iloc[1]
-    assert run2["material"] == "aluminum"
+    assert run2["substrate"] == "aluminum"
     assert run2["data_file"] == store.MEASUREMENTS_FILENAME
     assert "Local_temperature (C)" in list(run2["channels"])
     assert run2["n_measurements"] == 3
@@ -187,6 +188,31 @@ def test_build_catalogue_fields(data_dir):
     path = data_dir / run2["run_id"] / run2["data_file"]
     assert run2["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
     assert json.loads(run2["metadata"])["run_info"]["run_type"] == "permeation_exp"
+
+
+def test_build_catalogue_reads_v14_sample_fields(tmp_path):
+    root = tmp_path / "run_data"
+    run_dir = _write_run(root, "26.03.19_run_1_14h40")
+    metadata = json.loads((run_dir / store.METADATA_FILENAME).read_text())
+    metadata["version"] = "1.4"
+    metadata["run_info"] = {
+        "date": "2026-03-19",
+        "run_type": "permeation_exp",
+        "furnace_setpoint": 300,
+        "sample_substrate": "carbon steel",
+        "sample_coating": "800nm tungsten",
+        "sample_coating_layers": [{"material": "tungsten", "thickness_nm": 800}],
+        "sample_thickness": 0.00065,
+    }
+    (run_dir / store.METADATA_FILENAME).write_text(json.dumps(metadata))
+
+    cat = store.build_catalogue(root)
+
+    run = cat.iloc[0]
+    assert run["substrate"] == "carbon steel"
+    assert run["coating"] == "800nm tungsten"
+    layers = json.loads(run["metadata"])["run_info"]["sample_coating_layers"]
+    assert layers == [{"material": "tungsten", "thickness_nm": 800}]
 
 
 def test_build_catalogue_writes_parquet(data_dir, tmp_path):
@@ -237,21 +263,21 @@ def test_load_filtered_store_mode_aligns_channels(data_dir, store_mode, monkeypa
     assert run1_rows["Local_temperature (C)"].isna().all()
 
 
-def test_load_filtered_store_mode_by_material(data_dir, store_mode, monkeypatch):
+def test_load_filtered_store_mode_by_substrate(data_dir, store_mode, monkeypatch):
     monkeypatch.setattr(db, "RUN_DATA_DIR", data_dir)
-    df = db.load_filtered(material="aluminum")
+    df = db.load_filtered(substrate="aluminum")
     assert set(df["run_id"]) == {"25.10.07_run_1_08h16"}
 
 
 def test_load_filtered_unknown_filter_raises(data_dir, store_mode, monkeypatch):
     monkeypatch.setattr(db, "RUN_DATA_DIR", data_dir)
     with pytest.raises(ValueError, match="Unknown filter"):
-        db.load_filtered(substrate="unknown")
+        db.load_filtered(material="unknown")
 
 
 def test_load_filtered_no_matches_returns_empty(data_dir, store_mode, monkeypatch):
     monkeypatch.setattr(db, "RUN_DATA_DIR", data_dir)
-    assert db.load_filtered(material="unobtainium").empty
+    assert db.load_filtered(substrate="unobtainium").empty
 
 
 # --- per-run download and caching -------------------------------------------
