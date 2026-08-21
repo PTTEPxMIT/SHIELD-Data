@@ -32,6 +32,8 @@ def _write_run(
     with_temperature=False,
     material_key="material",
     material="steel",
+    run_info_extra=None,
+    version=None,
 ):
     """Create a legacy CSV run folder and return its path."""
     run_dir = data_dir / run_id
@@ -49,6 +51,10 @@ def _write_run(
         "gauges": {"WGM701": "info"},
         "thermocouples": {"TC1": "info"},
     }
+    if version is not None:
+        metadata["version"] = version
+    if run_info_extra:
+        metadata["run_info"].update(run_info_extra)
     with open(run_dir / store.METADATA_FILENAME, "w") as f:
         json.dump(metadata, f)
 
@@ -174,6 +180,8 @@ def test_build_catalogue_fields(data_dir):
     assert run1["substrate"] == "steel"
     assert run1["coating"] == "TiN"
     assert run1["furnace_setpoint"] == 500
+    # historical metadata has no sample_id: catalogue value is None
+    assert run1["sample_id"] is None
     assert run1["data_file"] == store.LEGACY_CSV_FILENAME
     assert set(run1["channels"]) == set(GAUGE_COLUMNS)
 
@@ -213,6 +221,28 @@ def test_build_catalogue_reads_v14_sample_fields(tmp_path):
     assert run["coating"] == "800nm tungsten"
     layers = json.loads(run["metadata"])["run_info"]["sample_coating_layers"]
     assert layers == [{"material": "tungsten", "thickness_nm": 800}]
+
+
+def test_build_catalogue_reads_v15_leak_test_fields(tmp_path):
+    root = tmp_path / "run_data"
+    _write_run(
+        root,
+        "26.08.19_run_1_09h00",
+        version="1.5",
+        run_info_extra={
+            "run_type": "leak_test",
+            "sample_id": "S07",
+            "downstream_setpoint_torr": 0.5,
+        },
+    )
+
+    cat = store.build_catalogue(root)
+
+    run = cat.iloc[0]
+    assert run["run_type"] == "leak_test"
+    assert run["sample_id"] == "S07"
+    info = json.loads(run["metadata"])["run_info"]
+    assert info["downstream_setpoint_torr"] == 0.5
 
 
 def test_build_catalogue_writes_parquet(data_dir, tmp_path):
@@ -278,6 +308,55 @@ def test_load_filtered_unknown_filter_raises(data_dir, store_mode, monkeypatch):
 def test_load_filtered_no_matches_returns_empty(data_dir, store_mode, monkeypatch):
     monkeypatch.setattr(db, "RUN_DATA_DIR", data_dir)
     assert db.load_filtered(substrate="unobtainium").empty
+
+
+def test_catalogue_store_mode_sample_id_none_for_historical(
+    data_dir, store_mode, monkeypatch
+):
+    monkeypatch.setattr(db, "RUN_DATA_DIR", data_dir)
+    cat = db.catalogue()
+    assert "sample_id" in cat.columns
+    assert cat["sample_id"].isna().all()
+
+
+@pytest.fixture
+def sample_id_data_dir(tmp_path):
+    """run_data with a v1.5 leak test, its permeation run, and a historical run."""
+    root = tmp_path / "run_data"
+    _write_run(
+        root,
+        "26.08.19_run_1_09h00",
+        version="1.5",
+        run_info_extra={
+            "run_type": "leak_test",
+            "sample_id": "S07",
+            "downstream_setpoint_torr": 0.5,
+        },
+    )
+    _write_run(
+        root,
+        "26.08.20_run_1_10h00",
+        version="1.5",
+        run_info_extra={"sample_id": "S07"},
+    )
+    _write_run(root, "26.08.21_run_1_11h00")  # historical: no sample_id
+    return root
+
+
+def test_load_filtered_store_mode_by_sample_id(
+    sample_id_data_dir, store_mode, monkeypatch
+):
+    monkeypatch.setattr(db, "RUN_DATA_DIR", sample_id_data_dir)
+    df = db.load_filtered(sample_id="S07")
+    assert set(df["run_id"]) == {"26.08.19_run_1_09h00", "26.08.20_run_1_10h00"}
+
+
+def test_load_filtered_store_mode_leak_test(
+    sample_id_data_dir, store_mode, monkeypatch
+):
+    monkeypatch.setattr(db, "RUN_DATA_DIR", sample_id_data_dir)
+    df = db.load_filtered(run_type="leak_test", sample_id="S07")
+    assert set(df["run_id"]) == {"26.08.19_run_1_09h00"}
 
 
 # --- per-run download and caching -------------------------------------------
