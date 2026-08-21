@@ -50,8 +50,8 @@ Load the catalogue of all experimental runs.
 cat = sd.catalogue()
 # Returns DataFrame with columns:
 #   run_id, date, start_time, end_time, run_type, furnace_setpoint,
-#   substrate, coating, channels, n_measurements, data_file, size_bytes,
-#   sha256, metadata
+#   sample_id, substrate, coating, channels, n_measurements, data_file,
+#   size_bytes, sha256, metadata
 ```
 
 ### `load(run_id)`
@@ -162,6 +162,35 @@ The catalogue exposes `sample_substrate` and `sample_coating` as its
 `substrate` and `coating` columns. Metadata versions ≤ 1.3 recorded a single
 `material`/`sample_material` field instead, which readers treat as the
 substrate.
+
+#### Metadata v1.5 fields
+
+Runs recorded by SHIELD_DAS from metadata version 1.5 onwards carry all the
+v1.4 fields plus, in `run_info`:
+
+- `sample_id` — a short human-assigned unique identifier of the physical
+  specimen (e.g. `"S07"`), constant across every run recorded with that
+  specimen mounted. The catalogue exposes it as its `sample_id` column;
+  historical runs (v1.4 and earlier) have no sample_id, so their catalogue
+  value is None.
+- `downstream_setpoint_torr` (optional) — the pressure the downstream volume
+  was isolated at, in Torr (typically recorded for leak tests).
+
+#### Leak test runs
+
+Runs with `run_type="leak_test"` measure the background leak rate of the
+sealed assembly: a short run recorded with the sample installed and sealed
+as for a permeation run, the upstream side left unpressurized, and the
+downstream volume isolated at a setpoint within the 1-Torr Baratron band
+(recorded as `downstream_setpoint_torr`). The downstream pressure rise rate
+(dP/dt) over the run is the background leak rate.
+
+Pairing convention: a permeation run is corrected using the most recent
+prior leak test with the same `sample_id`. Find a sample's leak tests with
+
+```python
+leaks = sd.load_filtered(run_type="leak_test", sample_id="S07")
+```
 
 #### Backfilled sample assignments (2026-08-11)
 

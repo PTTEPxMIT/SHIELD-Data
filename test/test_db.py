@@ -107,6 +107,72 @@ def test_db(tmp_path):
     db.DB_PATH = original_db_path
 
 
+@pytest.fixture
+def leak_test_db(tmp_path):
+    """Database holding a v1.5 leak test and its paired permeation run."""
+    data_dir = tmp_path / "run_data"
+    data_dir.mkdir()
+
+    def write_run(run_id, run_info, n_rows):
+        run_dir = data_dir / run_id
+        run_dir.mkdir()
+        metadata = {
+            "version": "1.5",
+            "run_info": run_info,
+            "gauges": {"WGM701": "info"},
+            "thermocouples": {"TC1": "info"},
+        }
+        with open(run_dir / "run_metadata.json", "w") as f:
+            json.dump(metadata, f)
+        pd.DataFrame(
+            {
+                "RealTimestamp": [f"2026-08-20 09:00:{i:02d}" for i in range(n_rows)],
+                "WGM701_Voltage (V)": [1.0 + i for i in range(n_rows)],
+                "CVM211_Voltage (V)": [2.0 + i for i in range(n_rows)],
+                "Baratron626D_1KT_Voltage (V)": [3.0 + i for i in range(n_rows)],
+                "Baratron626D_1T_Voltage (V)": [4.0 + i for i in range(n_rows)],
+            }
+        ).to_csv(run_dir / "pressure_gauge_data.csv", index=False)
+
+    write_run(
+        "26.08.19_run_1_09h00",
+        {
+            "date": "2026-08-19",
+            "start_time": "09:00:00",
+            "run_type": "leak_test",
+            "furnace_setpoint": 500,
+            "sample_id": "S07",
+            "downstream_setpoint_torr": 0.5,
+            "sample_substrate": "carbon steel",
+            "sample_coating": "none",
+        },
+        n_rows=2,
+    )
+    write_run(
+        "26.08.20_run_1_10h00",
+        {
+            "date": "2026-08-20",
+            "start_time": "10:00:00",
+            "run_type": "permeation_exp",
+            "furnace_setpoint": 500,
+            "sample_id": "S07",
+            "sample_substrate": "carbon steel",
+            "sample_coating": "none",
+        },
+        n_rows=3,
+    )
+
+    db_path = tmp_path / "test.db"
+    build_db.build_database(data_dir, db_path)
+
+    original_db_path = db.DB_PATH
+    db.DB_PATH = db_path
+
+    yield db_path
+
+    db.DB_PATH = original_db_path
+
+
 # Connection tests
 
 
@@ -162,6 +228,7 @@ def test_catalogue_has_correct_row_count(test_db):
         "furnace_setpoint",
         "material",
         "coating",
+        "sample_id",
         "metadata",
     ],
 )
@@ -396,6 +463,46 @@ def test_load_filtered_no_filters_returns_all_data(test_db):
     result = db.load_filtered()
 
     assert len(result) == 5  # 2 from run1 + 3 from run2
+
+
+# Sample-id and leak-test tests (legacy mode)
+
+
+def test_catalogue_legacy_sample_id_none_for_historical(test_db):
+    """Test that runs without a sample_id show None in the catalogue."""
+    result = db.catalogue()
+
+    assert "sample_id" in result.columns
+    assert result["sample_id"].isna().all()
+
+
+def test_catalogue_legacy_exposes_sample_id(leak_test_db):
+    """Test that v1.5 sample_id values appear in the legacy catalogue."""
+    result = db.catalogue()
+
+    assert result["sample_id"].tolist() == ["S07", "S07"]
+
+
+def test_load_filtered_legacy_by_sample_id(leak_test_db):
+    """Test that filtering by sample_id returns both of the sample's runs."""
+    result = db.load_filtered(sample_id="S07")
+
+    assert len(result) == 5  # 2 leak-test + 3 permeation measurements
+
+
+def test_load_filtered_legacy_by_sample_id_no_match(leak_test_db):
+    """Test that filtering by an unknown sample_id returns empty DataFrame."""
+    result = db.load_filtered(sample_id="S99")
+
+    assert result.empty
+
+
+def test_load_filtered_legacy_by_leak_test_run_type(leak_test_db):
+    """Test that filtering by run_type='leak_test' returns the leak test run."""
+    result = db.load_filtered(run_type="leak_test")
+
+    assert len(result) == 2
+    assert all(result["run_id"] == "26.08.19_run_1_09h00")
 
 
 # Integration tests

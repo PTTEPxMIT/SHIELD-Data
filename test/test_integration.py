@@ -220,6 +220,7 @@ def test_full_workflow_with_real_structure(sample_run_data, tmp_path):
             "furnace_setpoint",
             "material",
             "coating",
+            "sample_id",
             "metadata",
         }
 

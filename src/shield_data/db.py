@@ -275,7 +275,7 @@ def catalogue() -> pd.DataFrame:
 
     In store mode the catalogue has one row per run with normalised metadata
     fields (date, start_time, end_time, run_type, furnace_setpoint,
-    substrate, coating), the list of recorded ``channels``,
+    sample_id, substrate, coating), the list of recorded ``channels``,
     ``n_measurements``, and the data file's checksum. The coating is a
     human-readable summary (e.g. "800nm tungsten", "none" for uncoated); the
     per-layer breakdown lives in the run metadata's
