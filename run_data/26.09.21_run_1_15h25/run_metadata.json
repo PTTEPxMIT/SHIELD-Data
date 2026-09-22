@@ -1,0 +1,57 @@
+{
+  "version": "1.4",
+  "run_info": {
+    "date": "2026-09-21",
+    "start_time": "2026-09-21 15:25:30",
+    "run_type": "leak_test",
+    "furnace_setpoint": 325,
+    "recording_interval_seconds": 1,
+    "backup_interval_seconds": 1000,
+    "sample_id": null,
+    "sample_substrate": null,
+    "sample_coating": null,
+    "sample_coating_layers": [],
+    "sample_thickness": null,
+    "data_filename": "shield_data.csv",
+    "v1_close_time": "2026-09-21 15:25:32.845",
+    "v2_close_time": "2026-09-21 15:25:32.994",
+    "v3_open_time": "2026-09-21 15:25:33.120",
+    "v4_close_time": "2026-09-21 15:25:33.225",
+    "pressure_set_time": "2026-09-21 15:25:34.422",
+    "v4_open_time": "2026-09-21 15:25:36.384",
+    "end_time": "2026-09-21 17:15:24"
+  },
+  "gauges": [
+    {
+      "name": "WGM701",
+      "type": "WGM701_Gauge",
+      "ain_channel": 10,
+      "gauge_location": "downstream"
+    },
+    {
+      "name": "CVM211",
+      "type": "CVM211_Gauge",
+      "ain_channel": 8,
+      "gauge_location": "upstream"
+    },
+    {
+      "name": "Baratron626D_1KT",
+      "type": "Baratron626D_Gauge",
+      "ain_channel": 6,
+      "gauge_location": "upstream",
+      "full_scale_torr": 1000.0
+    },
+    {
+      "name": "Baratron626D_1T",
+      "type": "Baratron626D_Gauge",
+      "ain_channel": 4,
+      "gauge_location": "downstream",
+      "full_scale_torr": 1.0
+    }
+  ],
+  "thermocouples": [
+    {
+      "name": "furnace_thermocouple"
+    }
+  ]
+}
