@@ -185,8 +185,8 @@ downstream volume isolated at a setpoint within the 1-Torr Baratron band
 (recorded as `downstream_setpoint_torr`). The downstream pressure rise rate
 (dP/dt) over the run is the background leak rate.
 
-Pairing convention: a permeation run is corrected using the most recent
-prior leak test with the same `sample_id`. Find a sample's leak tests with
+A leak test is a standalone measurement of the sealed assembly; it is not
+applied to other runs. Find a sample's leak tests with
 
 ```python
 leaks = sd.load_filtered(run_type="leak_test", sample_id="S07")

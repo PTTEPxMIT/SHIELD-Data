@@ -109,7 +109,7 @@ def test_db(tmp_path):
 
 @pytest.fixture
 def leak_test_db(tmp_path):
-    """Database holding a v1.5 leak test and its paired permeation run."""
+    """Database holding a v1.5 leak test and a permeation run on the same sample."""
     data_dir = tmp_path / "run_data"
     data_dir.mkdir()
 
