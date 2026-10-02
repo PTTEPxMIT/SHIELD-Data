@@ -174,6 +174,10 @@ def _normalised_run_fields(metadata: dict) -> dict:
         "end_time": run_info.get("end_time"),
         "run_type": run_info.get("run_type"),
         "furnace_setpoint": run_info.get("furnace_setpoint"),
+        # v1.5 metadata records "sample_id", a short human-assigned unique
+        # identifier of the physical specimen (e.g. "S07"). Historical runs
+        # have no sample_id, so the catalogue value is None.
+        "sample_id": run_info.get("sample_id"),
         # v1.4 metadata records "sample_substrate"; older files had
         # "material" (v1.0) or "sample_material" (v1.3), which name the
         # substrate with no coating information.

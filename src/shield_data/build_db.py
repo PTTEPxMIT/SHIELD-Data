@@ -41,6 +41,7 @@ def _create_schema(cursor: sqlite3.Cursor) -> None:
             furnace_setpoint INTEGER,
             material TEXT,
             coating TEXT,
+            sample_id TEXT,
             metadata TEXT
         )
     """)
@@ -93,8 +94,8 @@ def _insert_run(cursor: sqlite3.Cursor, run_folder: Path) -> int:
     cursor.execute(
         """
         INSERT INTO runs (run_id, date, start_time, run_type,
-                        furnace_setpoint, material, coating, metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        furnace_setpoint, material, coating, sample_id, metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             run_id,
@@ -110,6 +111,9 @@ def _insert_run(cursor: sqlite3.Cursor, run_folder: Path) -> int:
                 run_info.get("material", run_info.get("sample_material")),
             ),
             run_info.get("sample_coating", run_info.get("coating")),
+            # v1.5 metadata records "sample_id" (short specimen identifier,
+            # e.g. "S07"); historical runs have none, stored as NULL.
+            run_info.get("sample_id"),
             json.dumps(metadata),
         ),
     )
