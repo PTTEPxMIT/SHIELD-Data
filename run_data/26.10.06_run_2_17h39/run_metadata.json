@@ -1,0 +1,66 @@
+{
+  "version": "1.4",
+  "run_info": {
+    "date": "2026-10-06",
+    "start_time": "2026-10-06 17:39:56",
+    "run_type": "permeation_exp",
+    "furnace_setpoint": 250,
+    "recording_interval_seconds": 1,
+    "backup_interval_seconds": 1000,
+    "sample_id": "CS-W200-Cr50-1",
+    "sample_substrate": "carbon steel",
+    "sample_coating": "200nm tungsten + 50nm chromium",
+    "sample_coating_layers": [
+      {
+        "material": "tungsten",
+        "thickness_nm": 200
+      },
+      {
+        "material": "chromium",
+        "thickness_nm": 50
+      }
+    ],
+    "sample_thickness": 0.00136,
+    "data_filename": "shield_data.csv",
+    "v1_close_time": "2026-10-06 17:40:46.988",
+    "v2_close_time": "2026-10-06 17:40:47.152",
+    "v3_open_time": "2026-10-06 17:40:47.286",
+    "v4_close_time": "2026-10-06 17:40:47.449",
+    "pressure_set_time": "2026-10-06 17:40:47.601",
+    "v4_open_time": "2026-10-06 17:40:49.778",
+    "end_time": "2026-10-07 08:18:55"
+  },
+  "gauges": [
+    {
+      "name": "WGM701",
+      "type": "WGM701_Gauge",
+      "ain_channel": 10,
+      "gauge_location": "downstream"
+    },
+    {
+      "name": "CVM211",
+      "type": "CVM211_Gauge",
+      "ain_channel": 8,
+      "gauge_location": "upstream"
+    },
+    {
+      "name": "Baratron626D_1KT",
+      "type": "Baratron626D_Gauge",
+      "ain_channel": 6,
+      "gauge_location": "upstream",
+      "full_scale_torr": 1000.0
+    },
+    {
+      "name": "Baratron626D_1T",
+      "type": "Baratron626D_Gauge",
+      "ain_channel": 4,
+      "gauge_location": "downstream",
+      "full_scale_torr": 1.0
+    }
+  ],
+  "thermocouples": [
+    {
+      "name": "furnace_thermocouple"
+    }
+  ]
+}
