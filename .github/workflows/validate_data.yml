@@ -259,14 +259,21 @@ jobs:
               except:
                   pass
               
+              # v1.4+ metadata names these sample_substrate/sample_coating;
+              # fall back to the older keys. v1.5 adds sample_id.
+              material = run_info.get(
+                  "sample_substrate",
+                  run_info.get("material", run_info.get("sample_material", "N/A")),
+              )
               runs_info.append({
                   "run_id": run_id,
                   "date": run_info.get("date", "N/A"),
                   "start_time": run_info.get("start_time", "N/A"),
                   "run_type": run_info.get("run_type", "N/A"),
                   "furnace_setpoint": run_info.get("furnace_setpoint", "N/A"),
-                  "material": run_info.get("material", "N/A"),
-                  "coating": run_info.get("coating", "N/A"),
+                  "sample_id": run_info.get("sample_id", "N/A"),
+                  "material": material,
+                  "coating": run_info.get("sample_coating", run_info.get("coating", "N/A")),
                   "measurements": measurement_count
               })
           
@@ -284,6 +291,7 @@ jobs:
                   summary.append(f"- **Start Time:** {info['start_time']}")
                   summary.append(f"- **Run Type:** {info['run_type']}")
                   summary.append(f"- **Furnace Setpoint:** {info['furnace_setpoint']}K")
+                  summary.append(f"- **Sample ID:** {info['sample_id']}")
                   summary.append(f"- **Material:** {info['material']}")
                   summary.append(f"- **Coating:** {info['coating']}")
                   summary.append(f"- **Measurements:** {info['measurements']:,}")
